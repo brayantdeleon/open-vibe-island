@@ -82,7 +82,13 @@ If rebase is risky for that slice, merge `origin/main` into the topic branch exp
 
 First make sure the topic worktree is committed and verified.
 
-Push the feature branch and open a PR targeting `main`. After the PR merges, return to the integration worktree:
+Push the feature branch and open a PR targeting `main`.
+
+- Open a normal ready-for-review PR by default.
+- Open a draft PR only when the user explicitly asks for draft mode, or when the branch is intentionally WIP or has known verification gaps.
+- If a PR is opened as draft, state why in the PR body or final summary.
+
+After the PR merges, return to the integration worktree:
 
 ```bash
 git switch main
@@ -94,6 +100,7 @@ git pull --ff-only origin main
 
 - Push topic branches when you want backup, review, or collaboration.
 - Do not push `main` directly. Merge through PRs, then update the integration worktree with `git pull --ff-only`.
+- Tooling defaults do not override this policy; for example, a publish helper that defaults to draft PRs must still follow the repository default above.
 
 ## Cleanup
 

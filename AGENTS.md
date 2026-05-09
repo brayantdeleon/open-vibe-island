@@ -24,6 +24,8 @@ Keep all work incremental, reviewable, and reversible. Every meaningful round of
 - Do not amend existing commits unless explicitly requested.
 - Create a feature branch for every independent change. Do not commit directly to `main`.
 - Push feature branches and open PRs when the user asks for remote review or integration.
+- When the user asks to open or submit a PR, open a normal ready-for-review PR by default. Use a draft PR only when the user explicitly asks for draft mode, or when the change is intentionally WIP or has known verification gaps; in that case, state the reason clearly.
+- Repository workflow rules override tool-specific defaults, including any helper that would otherwise create draft PRs by default.
 
 ## Safety Rules
 
@@ -51,6 +53,7 @@ Keep all work incremental, reviewable, and reversible. Every meaningful round of
 - Keep each worktree focused on one coherent slice with a narrow file ownership area when possible.
 - Rebase or merge the latest `origin/main` into the feature branch before integrating it back.
 - Integrate completed work through a PR targeting `main`, then update the shared `main` worktree with `git pull --ff-only`.
+- PRs are ready-for-review by default unless explicitly requested as draft or clearly marked WIP.
 - Remove merged worktrees and delete merged branches after the integration round is complete.
 - If multiple agents are working in parallel, assign each agent its own worktree instead of sharing one checkout.
 - All PRs must target `main`. Do not chain PRs through another feature branch unless the user explicitly requests that structure.
