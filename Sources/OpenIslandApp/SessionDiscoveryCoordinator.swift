@@ -489,6 +489,22 @@ final class SessionDiscoveryCoordinator {
 
     // MARK: - Persistence scheduling
 
+    private static func persistenceTask(
+        operation: @escaping @Sendable () throws -> Void
+    ) -> Task<Void, Never> {
+        Task.detached(priority: .utility) {
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+                try Task.checkCancellation()
+                try operation()
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+        }
+    }
+
     func scheduleCodexSessionPersistence() {
         codexSessionPersistenceTask?.cancel()
 
@@ -497,9 +513,8 @@ final class SessionDiscoveryCoordinator {
             .map(CodexTrackedSessionRecord.init(session:))
         let store = codexSessionStore
 
-        codexSessionPersistenceTask = Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .milliseconds(250))
-            try? store.save(records)
+        codexSessionPersistenceTask = Self.persistenceTask {
+            try store.save(records)
         }
     }
 
@@ -518,9 +533,8 @@ final class SessionDiscoveryCoordinator {
             .map(ClaudeTrackedSessionRecord.init(session:))
         let registry = claudeSessionRegistry
 
-        claudeSessionPersistenceTask = Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .milliseconds(250))
-            try? registry.save(records)
+        claudeSessionPersistenceTask = Self.persistenceTask {
+            try registry.save(records)
         }
     }
 
@@ -536,9 +550,8 @@ final class SessionDiscoveryCoordinator {
             .map(OpenCodeTrackedSessionRecord.init(session:))
         let registry = openCodeSessionRegistry
 
-        openCodeSessionPersistenceTask = Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .milliseconds(250))
-            try? registry.save(records)
+        openCodeSessionPersistenceTask = Self.persistenceTask {
+            try registry.save(records)
         }
     }
 
@@ -555,9 +568,8 @@ final class SessionDiscoveryCoordinator {
             .map(CursorTrackedSessionRecord.init(session:))
         let registry = cursorSessionRegistry
 
-        cursorSessionPersistenceTask = Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .milliseconds(250))
-            try? registry.save(records)
+        cursorSessionPersistenceTask = Self.persistenceTask {
+            try registry.save(records)
         }
     }
 }

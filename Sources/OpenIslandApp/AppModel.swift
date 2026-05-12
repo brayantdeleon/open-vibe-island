@@ -32,6 +32,7 @@ final class AppModel {
     private static let syntheticClaudeSessionPrefix = "claude-process:"
     private static let liveSessionStalenessWindow: TimeInterval = 15 * 60
     private static let jumpOverlayDismissLeadTime: Duration = .milliseconds(20)
+    private static let agentsGridObservedSequenceLimit = 512
     static let hoverOpenDelay: TimeInterval = 0.15
 
     struct AcceptanceStep: Identifiable {
@@ -46,6 +47,7 @@ final class AppModel {
     var state = SessionState() {
         didSet {
             _cachedSessionBuckets = nil
+            pruneAgentsGridObservationTicketsIfNeeded()
             bridgeServer.updateStateSnapshot(state)
         }
     }
@@ -914,6 +916,24 @@ final class AppModel {
         for session in orderedNewcomers {
             _agentsGridObservedSequence[session.id] = _agentsGridNextTicket
             _agentsGridNextTicket += 1
+        }
+    }
+
+    private func pruneAgentsGridObservationTicketsIfNeeded() {
+        guard _agentsGridObservedSequence.count > Self.agentsGridObservedSequenceLimit else {
+            return
+        }
+
+        let liveIDs = Set(state.sessions.map(\.id))
+        let retainedHistoricalCapacity = max(Self.agentsGridObservedSequenceLimit - liveIDs.count, 0)
+        let retainedHistoricalIDs = _agentsGridObservedSequence
+            .filter { !liveIDs.contains($0.key) }
+            .sorted { $0.value > $1.value }
+            .prefix(retainedHistoricalCapacity)
+            .map(\.key)
+        let retainedIDs = liveIDs.union(retainedHistoricalIDs)
+        _agentsGridObservedSequence = _agentsGridObservedSequence.filter {
+            retainedIDs.contains($0.key)
         }
     }
 
