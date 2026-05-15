@@ -203,7 +203,7 @@ final class OverlayPanelController {
         guard !screens.isEmpty else { return nil }
 
         if let preferredScreenID,
-           let screen = screens.first(where: { screenID(for: $0) == preferredScreenID }) {
+           let screen = screens.first(where: { OverlayDisplayResolver.screenID(for: $0) == preferredScreenID }) {
             return screen
         }
 
@@ -212,14 +212,6 @@ final class OverlayPanelController {
         }
 
         return NSScreen.main ?? screens[0]
-    }
-
-    private func screenID(for screen: NSScreen) -> String {
-        let key = NSDeviceDescriptionKey("NSScreenNumber")
-        if let number = screen.deviceDescription[key] as? NSNumber {
-            return "display-\(number.uint32Value)"
-        }
-        return screen.localizedName
     }
 
     // MARK: - Mouse event monitoring
