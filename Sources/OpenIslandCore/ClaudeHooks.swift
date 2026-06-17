@@ -1152,6 +1152,12 @@ public extension ClaudeHookPayload {
         }
     }
 
+    /// Best-effort detection of the terminal app — or desktop host — a Claude
+    /// hook fired from, used to build the session's jump target. Returns `nil`
+    /// when no host can be determined (the caller falls back to an "Unknown"
+    /// sentinel). Multiplexers and the Claude desktop app are checked before
+    /// `TERM_PROGRAM` because those signals are authoritative and don't leak
+    /// across apps via macOS GUI environment inheritance.
     private func inferTerminalApp(from environment: [String: String]) -> String? {
         // Multiplexers run inside a host terminal but expose their own pane
         // context. Detect them first so the captured jumpTarget points at

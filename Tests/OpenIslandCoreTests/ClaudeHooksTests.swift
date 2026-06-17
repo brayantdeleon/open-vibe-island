@@ -316,13 +316,13 @@ struct ClaudeHooksTests {
         #expect(payload.defaultJumpTarget.terminalApp == "Unknown")
     }
 
+    /// Verifies a Claude Desktop session is tagged `Claude.app` via the
+    /// authoritative `CLAUDE_CODE_ENTRYPOINT=claude-desktop` signal. The
+    /// desktop subprocess is TTY-less and invisible to process discovery, so
+    /// this tag is what lets liveness follow the desktop app instead of a
+    /// non-existent terminal process.
     @Test
     func claudeInferTerminalAppRecognizesClaudeDesktopViaEntrypoint() {
-        // Claude Code launched by the Claude desktop app runs as a TTY-less
-        // subprocess, so process discovery never sees it. Tag the session as
-        // "Claude.app" so liveness follows the desktop app instead of a
-        // non-existent terminal process. CLAUDE_CODE_ENTRYPOINT is set by
-        // Claude Code itself ("claude-desktop"), so it's authoritative.
         let payload = ClaudeHookPayload(
             cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
         ).withRuntimeContext(
@@ -335,10 +335,11 @@ struct ClaudeHooksTests {
         #expect(payload.defaultJumpTarget.terminalApp == "Claude.app")
     }
 
+    /// Verifies the `__CFBundleIdentifier=com.anthropic.claudefordesktop`
+    /// fallback also tags the session `Claude.app` — the hook binary inherits
+    /// that bundle id when launched as a subprocess of Claude.app.
     @Test
     func claudeInferTerminalAppRecognizesClaudeDesktopViaBundleIdentifier() {
-        // Fallback signal: the hook binary inherits __CFBundleIdentifier from
-        // Claude.app when launched as its subprocess.
         let payload = ClaudeHookPayload(
             cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
         ).withRuntimeContext(
@@ -350,12 +351,13 @@ struct ClaudeHooksTests {
         #expect(payload.terminalApp == "Claude.app")
     }
 
+    /// Verifies the desktop entrypoint signal wins over a leaked
+    /// `TERM_PROGRAM`. Launching Claude.app from a terminal (e.g.
+    /// `open -a Claude` from Ghostty) leaks the parent shell's `TERM_PROGRAM`
+    /// into the subprocess env; the session must still classify as
+    /// `Claude.app`, not the launching terminal.
     @Test
     func claudeInferTerminalAppPrefersClaudeDesktopOverLeakedTermProgram() {
-        // Launching Claude.app from a terminal (e.g. `open -a Claude` from
-        // Ghostty) leaks the parent shell's TERM_PROGRAM into the subprocess
-        // env. The desktop entrypoint signal must dominate so the session is
-        // not misclassified as the launching terminal.
         let payload = ClaudeHookPayload(
             cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
         ).withRuntimeContext(
