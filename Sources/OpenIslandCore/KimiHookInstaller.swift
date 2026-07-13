@@ -159,7 +159,7 @@ public enum KimiHookInstaller {
 
         for line in lines {
             let syntax = tomlSyntax(in: line, multilineString: &multilineString)
-            let trimmedSyntax = syntax.trimmingCharacters(in: .whitespaces)
+            let trimmedSyntax = syntax.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if !hasEnteredTable, isEmptyHooksArrayAssignment(trimmedSyntax) {
                 continue
@@ -232,6 +232,7 @@ public enum KimiHookInstaller {
                 if hasTripleQuote(quote, in: bytes, at: index) {
                     multilineString = honorsEscapes ? .basic : .literal
                     index += 3
+                    result.append(0x01)
                 } else {
                     index += 1
                     while index < bytes.count {
@@ -241,6 +242,7 @@ public enum KimiHookInstaller {
                         }
                         index += 1
                     }
+                    result.append(0x01)
                 }
             default:
                 result.append(bytes[index])
@@ -279,13 +281,16 @@ public enum KimiHookInstaller {
     private static func isEmptyHooksArrayAssignment(_ syntax: String) -> Bool {
         guard let equalsIndex = syntax.firstIndex(of: "=") else { return false }
 
-        let key = syntax[..<equalsIndex].trimmingCharacters(in: .whitespaces)
+        let key = syntax[..<equalsIndex].trimmingCharacters(in: .whitespacesAndNewlines)
         guard key == "hooks" else { return false }
 
-        let value = syntax[syntax.index(after: equalsIndex)...].trimmingCharacters(in: .whitespaces)
+        let value = syntax[syntax.index(after: equalsIndex)...]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard value.hasPrefix("["), value.hasSuffix("]") else { return false }
 
-        return value.dropFirst().dropLast().trimmingCharacters(in: .whitespaces).isEmpty
+        return value.dropFirst().dropLast()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
     }
 
     private static func isHooksHeader(_ line: String) -> Bool {

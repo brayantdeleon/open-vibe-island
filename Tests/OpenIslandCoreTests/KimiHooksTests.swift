@@ -160,6 +160,38 @@ struct KimiHooksTests {
     }
 
     @Test
+    func installKeepsNonEmptyTopLevelHooksArrayWithStrings() {
+        let userToml = #"""
+        default_model = "kimi-code/kimi-for-coding"
+        hooks = ["user-hook"]
+
+        """#
+        let command = KimiHookInstaller.hookCommand(for: "/opt/open-island/OpenIslandHooks")
+        let mutation = KimiHookInstaller.installConfigTOML(
+            existingContents: userToml,
+            hookCommand: command
+        )
+
+        let contents = try! #require(mutation.contents)
+        #expect(contents.contains(#"hooks = ["user-hook"]"#))
+        #expect(contents.contains("event = \"SessionStart\""))
+    }
+
+    @Test
+    func installRemovesEmptyTopLevelHooksArrayFromCRLFConfig() {
+        let userToml = "default_model = \"kimi-code/kimi-for-coding\"\r\nhooks = []\r\n"
+        let command = KimiHookInstaller.hookCommand(for: "/opt/open-island/OpenIslandHooks")
+        let mutation = KimiHookInstaller.installConfigTOML(
+            existingContents: userToml,
+            hookCommand: command
+        )
+
+        let contents = try! #require(mutation.contents)
+        #expect(contents.contains("hooks = []") == false)
+        #expect(contents.contains("event = \"SessionStart\""))
+    }
+
+    @Test
     func reinstallIsIdempotent() {
         let command = KimiHookInstaller.hookCommand(for: "/opt/open-island/OpenIslandHooks")
         let firstInstall = KimiHookInstaller.installConfigTOML(
