@@ -229,7 +229,11 @@ final class SessionDiscoveryCoordinator {
 
         merged.origin = existing.origin ?? discovered.origin
         merged.attachmentState = mergeAttachmentState(existing.attachmentState, discovered.attachmentState)
-        merged.jumpTarget = existing.jumpTarget ?? discovered.jumpTarget
+        merged.jumpTarget = mergeJumpTarget(
+            existing: existing.jumpTarget,
+            discovered: discovered.jumpTarget,
+            tool: discovered.tool
+        )
         merged.codexMetadata = mergeCodexMetadata(existing.codexMetadata, discovered.codexMetadata)
         merged.claudeMetadata = mergeClaudeMetadata(existing.claudeMetadata, discovered.claudeMetadata)
         merged.openCodeMetadata = mergeOpenCodeMetadata(existing.openCodeMetadata, discovered.openCodeMetadata)
@@ -240,6 +244,36 @@ final class SessionDiscoveryCoordinator {
         merged.isCodexAppSession = existing.isCodexAppSession || discovered.isCodexAppSession
 
         return merged
+    }
+
+    private func mergeJumpTarget(
+        existing: JumpTarget?,
+        discovered: JumpTarget?,
+        tool: AgentTool
+    ) -> JumpTarget? {
+        guard let existing else { return discovered }
+        guard let discovered else { return existing }
+
+        let existingWorkingDirectory = existing.workingDirectory?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let discoveredWorkingDirectory = discovered.workingDirectory?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let existingHasUsefulWorkspace = existingWorkingDirectory.map {
+            !$0.isEmpty && $0 != "/"
+        } ?? false
+        let discoveredHasUsefulWorkspace = discoveredWorkingDirectory.map {
+            !$0.isEmpty && $0 != "/"
+        } ?? false
+
+        if tool == .codex,
+           existing.terminalApp == "Codex.app",
+           discovered.terminalApp == "Codex.app",
+           !existingHasUsefulWorkspace,
+           discoveredHasUsefulWorkspace {
+            return discovered
+        }
+
+        return existing
     }
 
     private func mergeOpenCodeMetadata(

@@ -791,6 +791,10 @@ struct CodexSessionTrackingTests {
                     "content": [
                         [
                             "type": "input_text",
+                            "text": "<recommended_plugins>\n- Example plugin\n</recommended_plugins>",
+                        ],
+                        [
+                            "type": "input_text",
                             "text": "# AGENTS.md instructions for /tmp/repo\n\n<INSTRUCTIONS>\nRepository guide\n</INSTRUCTIONS>",
                         ],
                         [
@@ -1195,6 +1199,10 @@ struct CodexSessionTrackingTests {
         #expect(records.first?.codexMetadata?.currentCommandPreview == nil)
         #expect(records.first?.origin == .live)
         #expect(records.first?.attachmentState == .stale)
+        #expect(records.first?.jumpTarget?.terminalApp == "Codex.app")
+        #expect(records.first?.jumpTarget?.workspaceName == "open-island")
+        #expect(records.first?.jumpTarget?.workingDirectory == "/Users/wangruobing/Personal/open-island")
+        #expect(records.first?.jumpTarget?.codexThreadID == "codex-session-1")
     }
 
     @Test

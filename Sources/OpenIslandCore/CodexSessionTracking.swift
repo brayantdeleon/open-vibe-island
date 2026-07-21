@@ -517,6 +517,13 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
             summary: summary,
             phase: snapshot.phase,
             updatedAt: updatedAt,
+            jumpTarget: JumpTarget(
+                terminalApp: "Codex.app",
+                workspaceName: sessionMeta.workspaceName,
+                paneTitle: sessionMeta.sessionTitle,
+                workingDirectory: sessionMeta.cwd,
+                codexThreadID: sessionMeta.sessionID
+            ),
             codexMetadata: metadata
         )
     }
@@ -1360,7 +1367,8 @@ public enum CodexRolloutReducer {
     }
 
     private static func isInjectedPromptBlock(_ text: String) -> Bool {
-        text.hasPrefix("# AGENTS.md instructions for ")
+        text.hasPrefix("<recommended_plugins>")
+            || text.hasPrefix("# AGENTS.md instructions for ")
             || text.hasPrefix("<environment_context>")
             || text.hasPrefix("<permissions instructions>")
             || text.hasPrefix("<collaboration_mode>")
