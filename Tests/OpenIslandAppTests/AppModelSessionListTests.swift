@@ -883,6 +883,56 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func mergeDiscoveredCodexSessionReplacesRootWorkspaceWithRolloutWorkspace() {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let model = AppModel()
+        model.state = SessionState(
+            sessions: [
+                AgentSession(
+                    id: "codex-thread",
+                    title: "Codex · open-island",
+                    tool: .codex,
+                    origin: .live,
+                    attachmentState: .attached,
+                    phase: .running,
+                    summary: "Working",
+                    updatedAt: now,
+                    jumpTarget: JumpTarget(
+                        terminalApp: "Codex.app",
+                        workspaceName: "/",
+                        paneTitle: "Codex",
+                        workingDirectory: "/",
+                        codexThreadID: "codex-thread"
+                    )
+                ),
+            ]
+        )
+
+        let merged = model.discovery.mergeDiscoveredSessions([
+            AgentSession(
+                id: "codex-thread",
+                title: "Codex · open-island",
+                tool: .codex,
+                origin: .live,
+                attachmentState: .stale,
+                phase: .running,
+                summary: "Working",
+                updatedAt: now,
+                jumpTarget: JumpTarget(
+                    terminalApp: "Codex.app",
+                    workspaceName: "open-island",
+                    paneTitle: "Codex · open-island",
+                    workingDirectory: "/tmp/open-island",
+                    codexThreadID: "codex-thread"
+                )
+            ),
+        ])
+
+        #expect(merged.first?.jumpTarget?.workspaceName == "open-island")
+        #expect(merged.first?.jumpTarget?.workingDirectory == "/tmp/open-island")
+    }
+
+    @Test
     func mergedWithSyntheticClaudeSessionsAddsGhosttyClaudeProcessWhenNoTrackedSessionExists() {
         let now = Date(timeIntervalSince1970: 2_000)
         let model = AppModel()
