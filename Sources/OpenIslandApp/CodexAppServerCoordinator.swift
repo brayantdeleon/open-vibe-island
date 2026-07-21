@@ -118,7 +118,9 @@ final class CodexAppServerCoordinator {
 
     // MARK: - Notification handling
 
-    private func handleNotification(_ notification: CodexAppServerNotification) {
+    /// Internal so tests can pin how observer-only app-server signals map into
+    /// actionable Open Island state.
+    func handleNotification(_ notification: CodexAppServerNotification) {
         switch notification {
         case .threadStarted(let thread):
             guard !thread.ephemeral else { return }
@@ -132,14 +134,16 @@ final class CodexAppServerCoordinator {
             switch status.type {
             case .active:
                 if status.isWaitingOnApproval {
-                    onEvent?(.permissionRequested(
-                        PermissionRequested(
+                    // This coordinator owns a separate app-server subprocess,
+                    // not the stdio connection used by Codex Desktop. Its
+                    // status can tell us that Desktop is waiting, but it does
+                    // not carry a routable approval request. Only the blocking
+                    // PermissionRequest hook may create an actionable card.
+                    onEvent?(.activityUpdated(
+                        SessionActivityUpdated(
                             sessionID: threadId,
-                            request: PermissionRequest(
-                                title: "Approval Required",
-                                summary: "Codex is waiting for approval.",
-                                affectedPath: ""
-                            ),
+                            summary: "Codex is waiting for approval in Codex.",
+                            phase: .running,
                             timestamp: .now
                         )
                     ))
