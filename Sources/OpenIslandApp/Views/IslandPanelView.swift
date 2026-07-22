@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 @preconcurrency import MarkdownUI
 import OpenIslandCore
@@ -851,10 +852,7 @@ struct IslandPanelView: View {
         let providers = openedUsageProviders
 
         if providers.isEmpty == false {
-            ViewThatFits(in: .horizontal) {
-                compactUsageSummaryView(providers, usesShortTitles: false)
-                compactUsageSummaryView(providers, usesShortTitles: true)
-            }
+            compactUsageSummaryView(providers)
         } else {
             Color.clear
         }
@@ -866,11 +864,6 @@ struct IslandPanelView: View {
         }
 
         var providers: [UsageProviderPresentation] = []
-
-        let claudeFiveHour = model.claudeUsageSnapshot?.fiveHour
-        if model.claudeUsageInstalled || claudeFiveHour != nil {
-            providers.append(.claudeFiveHour(claudeFiveHour))
-        }
 
         if model.showCodexUsage,
            let snapshot = model.codexUsageSnapshot,
@@ -895,10 +888,15 @@ struct IslandPanelView: View {
             }
         }
 
+        let claudeFiveHour = model.claudeUsageSnapshot?.fiveHour
+        if model.claudeUsageInstalled || claudeFiveHour != nil {
+            providers.append(.claudeFiveHour(claudeFiveHour))
+        }
+
         return providers
     }
 
-    private func splitUsageProviders(
+    func splitUsageProviders(
         _ providers: [UsageProviderPresentation]
     ) -> (left: [UsageProviderPresentation], right: [UsageProviderPresentation]) {
         switch providers.count {
@@ -907,7 +905,10 @@ struct IslandPanelView: View {
         case 1:
             return ([providers[0]], [])
         case 2:
-            return ([providers[0]], [providers[1]])
+            // Pet-based chips are compact enough to remain together in the
+            // left auxiliary area. Keeping both here prevents the second
+            // provider from disappearing when the right notch lane collapses.
+            return (providers, [])
         default:
             let splitIndex = Int(ceil(Double(providers.count) / 2.0))
             return (
@@ -926,10 +927,7 @@ struct IslandPanelView: View {
             Color.clear
                 .frame(maxWidth: .infinity)
         } else {
-            ViewThatFits(in: .horizontal) {
-                compactUsageSummaryView(providers, usesShortTitles: false)
-                compactUsageSummaryView(providers, usesShortTitles: true)
-            }
+            compactUsageSummaryView(providers)
             .frame(maxWidth: .infinity, alignment: alignment)
         }
     }
@@ -987,24 +985,20 @@ struct IslandPanelView: View {
         )
     }
 
-    private func compactUsageSummaryView(
-        _ providers: [UsageProviderPresentation],
-        usesShortTitles: Bool
-    ) -> some View {
+    private func compactUsageSummaryView(_ providers: [UsageProviderPresentation]) -> some View {
         HStack(spacing: 7) {
             ForEach(providers) { provider in
-                compactUsageChip(provider, usesShortTitle: usesShortTitles)
+                compactUsageChip(provider)
             }
         }
         .lineLimit(1)
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func compactUsageChip(_ provider: UsageProviderPresentation, usesShortTitle: Bool) -> some View {
+    private func compactUsageChip(_ provider: UsageProviderPresentation) -> some View {
         HStack(spacing: 5) {
-            Text(usesShortTitle ? provider.shortTitle : provider.title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.74))
+            UsageProviderPetIcon(providerID: provider.id, providerName: provider.title)
+                .frame(width: 18, height: 17)
 
             Text(provider.peakWindowLabel)
                 .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
@@ -1113,17 +1107,6 @@ struct UsageProviderPresentation: Identifiable {
         return "\(percentage)%"
     }
 
-    var shortTitle: String {
-        switch id {
-        case "claude":
-            "Cl"
-        case "codex":
-            "Cx"
-        default:
-            String(title.prefix(2))
-        }
-    }
-
     static func claudeFiveHour(_ window: ClaudeUsageWindow?) -> Self {
         Self(
             id: "claude",
@@ -1148,6 +1131,57 @@ struct UsageWindowPresentation: Identifiable {
 
     var roundedUsedPercentage: Int? {
         usedPercentage.map { Int($0.rounded()) }
+    }
+}
+
+private struct UsageProviderPetIcon: View {
+    let providerID: String
+    let providerName: String
+
+    private static let codexImage = PetdexPetLoader.selectedRunningFrames().first
+    private static let clawdImage: CGImage? = {
+        guard
+            let url = Bundle.appResources.url(forResource: "clawd-menubar", withExtension: "png"),
+            let image = NSImage(contentsOf: url)
+        else {
+            return nil
+        }
+        return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+    }()
+
+    @ViewBuilder
+    var body: some View {
+        Group {
+            switch providerID {
+            case "codex":
+                if let image = Self.codexImage {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                        .scaleEffect(1.25)
+                } else {
+                    Text("Cx")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                }
+            case "claude":
+                if let image = Self.clawdImage {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                } else {
+                    Text("Cl")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                }
+            default:
+                Text(String(providerName.prefix(2)))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+            }
+        }
+        .foregroundStyle(.white.opacity(0.74))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(providerName)
     }
 }
 

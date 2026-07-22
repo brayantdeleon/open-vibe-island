@@ -2,6 +2,7 @@ import Testing
 @testable import OpenIslandApp
 import OpenIslandCore
 
+@MainActor
 struct UsageProviderPresentationTests {
     @Test
     func claudeUsagePresentationAlwaysTargetsTheFiveHourWindow() {
@@ -21,5 +22,29 @@ struct UsageProviderPresentationTests {
         #expect(provider.peakWindowLabel == "5h")
         #expect(provider.peakUsedPercentage == nil)
         #expect(provider.peakUsageText == "—")
+    }
+
+    @Test
+    func twoUsageProvidersRemainTogetherInTheLeftNotchLane() {
+        let claude = UsageProviderPresentation.claudeFiveHour(
+            ClaudeUsageWindow(usedPercentage: 4, resetsAt: nil)
+        )
+        let codex = UsageProviderPresentation(
+            id: "codex",
+            title: "Codex",
+            windows: [
+                UsageWindowPresentation(
+                    id: "codex-7d",
+                    label: "7d",
+                    usedPercentage: 28,
+                    resetsAt: nil
+                )
+            ]
+        )
+
+        let groups = IslandPanelView(model: AppModel()).splitUsageProviders([codex, claude])
+
+        #expect(groups.left.map(\.id) == ["codex", "claude"])
+        #expect(groups.right.isEmpty)
     }
 }
