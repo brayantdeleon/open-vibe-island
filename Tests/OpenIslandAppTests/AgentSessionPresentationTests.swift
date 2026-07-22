@@ -81,6 +81,37 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
+    func persistentPermissionApprovalIsOnlyOfferedForClaudeRules() {
+        let request = PermissionRequest(
+            title: "Run tool",
+            summary: "Run tool",
+            affectedPath: "tool",
+            toolName: "Bash"
+        )
+        let codex = AgentSession(
+            id: "codex-approval",
+            title: "Codex approval",
+            tool: .codex,
+            phase: .waitingForApproval,
+            summary: "Approval needed",
+            updatedAt: .now,
+            permissionRequest: request
+        )
+        let claude = AgentSession(
+            id: "claude-approval",
+            title: "Claude approval",
+            tool: .claudeCode,
+            phase: .waitingForApproval,
+            summary: "Approval needed",
+            updatedAt: .now,
+            permissionRequest: request
+        )
+
+        #expect(!codex.supportsPersistentPermissionApproval)
+        #expect(claude.supportsPersistentPermissionApproval)
+    }
+
+    @Test
     func attachedCompletedSessionStaysActiveWhileRecent() {
         let referenceDate = Date(timeIntervalSince1970: 10_000)
         let session = AgentSession(

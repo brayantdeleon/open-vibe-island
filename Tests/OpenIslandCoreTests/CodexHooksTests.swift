@@ -134,6 +134,35 @@ struct CodexHooksTests {
     }
 
     @Test
+    func codexApplyPatchObjectUsesPatchTextInsteadOfRawJSON() throws {
+        let patch = """
+        *** Begin Patch
+        *** Update File: Sources/App.swift
+        @@
+        -let state = "old"
+        +let state = "new"
+        *** End Patch
+        """
+        let inputData = try JSONSerialization.data(withJSONObject: ["patch": patch])
+        let input = try JSONDecoder().decode(CodexHookToolInput.self, from: inputData)
+        let payload = CodexHookPayload(
+            cwd: "/tmp/demo",
+            hookEventName: .permissionRequest,
+            model: "gpt-5-codex",
+            permissionMode: .default,
+            sessionID: "patch-object",
+            transcriptPath: nil,
+            toolName: "apply_patch",
+            toolInput: input
+        )
+
+        #expect(payload.permissionRequestTitle == "Apply code patch")
+        #expect(payload.permissionRequestSummary == "Codex wants to update Sources/App.swift.")
+        #expect(payload.permissionRequestDetail == patch)
+        #expect(payload.permissionRequestAffectedPath == "Sources/App.swift")
+    }
+
+    @Test
     func codexHookOutputEncoderEncodesPermissionRequestAllowDecision() throws {
         let output = try CodexHookOutputEncoder.standardOutput(
             for: .codexHookDirective(.permissionRequest(.allow))
