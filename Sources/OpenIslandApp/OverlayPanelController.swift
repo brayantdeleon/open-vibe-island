@@ -5,7 +5,8 @@ import OpenIslandCore
 
 @MainActor
 final class OverlayPanelController {
-    private static let preferredNotchOpenedPanelWidth: CGFloat = 540
+    // Leave enough room beside the hardware notch for both provider usage chips.
+    private static let preferredNotchOpenedPanelWidth: CGFloat = 600
     private static let preferredTopBarOpenedPanelWidth: CGFloat = 520
     private static let preferredNotificationPanelWidth: CGFloat = 620
     private static let openedContentWidthPadding: CGFloat = 0
