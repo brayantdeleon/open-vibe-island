@@ -363,23 +363,37 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
         }
     }
 
+    private struct SessionIndexEntry: Decodable {
+        var id: String
+        var threadName: String
+
+        private enum CodingKeys: String, CodingKey {
+            case id
+            case threadName = "thread_name"
+        }
+    }
+
     public static var defaultRootURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".codex/sessions", isDirectory: true)
     }
 
     private let rootURL: URL
+    private let sessionIndexURL: URL
     private let fileManager: FileManager
     private let maxAge: TimeInterval
     private let maxFiles: Int
 
     public init(
         rootURL: URL = CodexRolloutDiscovery.defaultRootURL,
+        sessionIndexURL: URL? = nil,
         fileManager: FileManager = .default,
         maxAge: TimeInterval = 86_400,
         maxFiles: Int = 40
     ) {
         self.rootURL = rootURL
+        self.sessionIndexURL = sessionIndexURL
+            ?? rootURL.deletingLastPathComponent().appendingPathComponent("session_index.jsonl")
         self.fileManager = fileManager
         self.maxAge = maxAge
         self.maxFiles = maxFiles
@@ -429,13 +443,19 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
             }
             .prefix(maxFiles)
 
+        let sessionNamesByID = loadSessionNamesByID()
         var recordsByID: [String: CodexTrackedSessionRecord] = [:]
         for candidate in recentCandidates {
-            guard let record = discoverRecord(
+            guard var record = discoverRecord(
                 fileURL: candidate.fileURL,
                 modifiedAt: candidate.modifiedAt
             ) else {
                 continue
+            }
+
+            if let sessionName = sessionNamesByID[record.sessionID] {
+                record.title = sessionName
+                record.jumpTarget?.paneTitle = sessionName
             }
 
             if let existing = recordsByID[record.sessionID], existing.updatedAt >= record.updatedAt {
@@ -529,6 +549,41 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
     }
 
     private static let streamingChunkSize = 64 * 1_024
+
+    private func loadSessionNamesByID() -> [String: String] {
+        guard let fileHandle = try? FileHandle(forReadingFrom: sessionIndexURL) else {
+            return [:]
+        }
+        defer { try? fileHandle.close() }
+
+        let decoder = JSONDecoder()
+        var namesByID: [String: String] = [:]
+        var buffer = Data()
+
+        func consume(_ line: String) {
+            guard let data = line.data(using: .utf8),
+                  let entry = try? decoder.decode(SessionIndexEntry.self, from: data) else {
+                return
+            }
+            let name = entry.threadName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !entry.id.isEmpty, !name.isEmpty else { return }
+            namesByID[entry.id] = name
+        }
+
+        while let chunk = try? fileHandle.read(upToCount: Self.streamingChunkSize),
+              !chunk.isEmpty {
+            buffer.append(chunk)
+            for line in extractCompleteLines(from: &buffer) {
+                consume(line)
+            }
+        }
+
+        if !buffer.isEmpty {
+            consume(String(decoding: buffer, as: UTF8.self))
+        }
+
+        return namesByID
+    }
 
     private func parseSessionMeta(fromLine line: String) -> SessionMeta? {
         guard let object = codexRolloutJSONObject(for: line),
