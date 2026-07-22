@@ -339,7 +339,7 @@ extension AgentSession {
     }
 
     func defaultsToExpandedIslandDetails(isActionable: Bool) -> Bool {
-        isActionable && phase.requiresAttention
+        phase == .completed || (isActionable && phase.requiresAttention)
     }
 
     func spotlightShowsDetailLines(at referenceDate: Date) -> Bool {

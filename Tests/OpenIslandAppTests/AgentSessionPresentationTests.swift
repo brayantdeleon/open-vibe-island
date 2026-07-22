@@ -47,7 +47,7 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
-    func ordinaryRowsStartCollapsedWhileRequiredActionsStayExpanded() {
+    func completedAndRequiredActionRowsStartExpanded() {
         let running = AgentSession(
             id: "running",
             title: "Running task",
@@ -75,7 +75,7 @@ struct AgentSessionPresentationTests {
 
         #expect(!running.defaultsToExpandedIslandDetails(isActionable: false))
         #expect(!running.defaultsToExpandedIslandDetails(isActionable: true))
-        #expect(!completed.defaultsToExpandedIslandDetails(isActionable: true))
+        #expect(completed.defaultsToExpandedIslandDetails(isActionable: true))
         #expect(!approval.defaultsToExpandedIslandDetails(isActionable: false))
         #expect(approval.defaultsToExpandedIslandDetails(isActionable: true))
     }
