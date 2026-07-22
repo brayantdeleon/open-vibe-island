@@ -31,8 +31,8 @@ struct AppModelSessionListTests {
     }
 
     @Test
-    func islandListSessionsOnlyIncludeLiveAttachedSessions() {
-        let now = Date(timeIntervalSince1970: 2_000)
+    func islandListKeepsRecentCompletedSessionsAfterTheirProcessEnds() {
+        let now = Date()
         let model = AppModel()
 
         var liveSession = AgentSession(
@@ -85,14 +85,57 @@ struct AppModelSessionListTests {
             ]
         )
 
-        #expect(model.surfacedSessions.map(\.id) == ["live-session"])
-        #expect(model.recentSessions.map(\.id) == ["recent-session"])
-        #expect(model.islandListSessions.map(\.id) == ["live-session"])
+        #expect(model.surfacedSessions.map(\.id) == ["live-session", "recent-session"])
+        #expect(model.recentSessions.isEmpty)
+        #expect(model.islandListSessions.map(\.id) == ["live-session", "recent-session"])
+    }
+
+    @Test
+    func islandListHidesCompletedSessionsIdleForMoreThanOneHour() {
+        let now = Date()
+        let model = AppModel()
+
+        var recentCompleted = listSession(
+            id: "recent-completed",
+            phase: .completed,
+            updatedAt: now.addingTimeInterval(-3_599)
+        )
+        recentCompleted.isProcessAlive = false
+
+        var oldCompleted = listSession(
+            id: "old-completed",
+            phase: .completed,
+            updatedAt: now.addingTimeInterval(-3_601)
+        )
+        oldCompleted.isProcessAlive = true
+
+        model.state = SessionState(sessions: [oldCompleted, recentCompleted])
+
+        #expect(model.islandListSessions.map(\.id) == ["recent-completed"])
+        #expect(model.recentSessions.map(\.id) == ["old-completed"])
+    }
+
+    @Test
+    func completedSessionDoesNotHopOutWhenAttachmentStateChanges() {
+        let now = Date()
+        let model = AppModel()
+        var session = listSession(id: "completed", phase: .completed, updatedAt: now.addingTimeInterval(-600))
+        session.isProcessAlive = true
+
+        model.state = SessionState(sessions: [session])
+        #expect(model.islandListSessions.map(\.id) == ["completed"])
+
+        session.isProcessAlive = false
+        session.attachmentState = .stale
+        session.isSessionEnded = true
+        model.state = SessionState(sessions: [session])
+
+        #expect(model.islandListSessions.map(\.id) == ["completed"])
     }
 
     @Test
     func islandListDeduplicatesSessionsSharingTheSameLiveGhosttyTerminal() {
-        let now = Date(timeIntervalSince1970: 2_000)
+        let now = Date()
         let model = AppModel()
 
         var runningLive = AgentSession(
@@ -165,7 +208,7 @@ struct AppModelSessionListTests {
 
     @Test
     func islandListKeepsDistinctCodexAppThreadsInTheSameWorkspace() {
-        let now = Date(timeIntervalSince1970: 2_000)
+        let now = Date()
         let model = AppModel()
 
         var firstThread = AgentSession(
@@ -343,7 +386,7 @@ struct AppModelSessionListTests {
         model.islandSessionGroup = .state
         model.completedStaleThreshold = .never
 
-        var oldDone = listSession(id: "old-done", phase: .completed, updatedAt: now.addingTimeInterval(-86_400))
+        var oldDone = listSession(id: "old-done", phase: .completed, updatedAt: now.addingTimeInterval(-1_800))
         oldDone.isProcessAlive = true
         model.state = SessionState(sessions: [oldDone])
 

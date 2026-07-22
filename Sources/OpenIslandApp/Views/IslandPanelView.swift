@@ -595,12 +595,13 @@ struct IslandPanelView: View {
                 )
                 .id(notificationCardIdentity(for: session))
 
-                if model.allSessions.count > 1 {
+                let visibleSessionCount = model.islandListSessions.count
+                if visibleSessionCount > 1 {
                     Button {
                         let isCompletion = session.phase == .completed
                         model.expandNotificationToSessionList(clearExpansion: isCompletion)
                     } label: {
-                        Text(model.lang.t("island.showAll", model.allSessions.count))
+                        Text(model.lang.t("island.showAll", visibleSessionCount))
                             .font(.system(size: 10.5, weight: .medium))
                             .foregroundStyle(.white.opacity(0.36))
                             .frame(maxWidth: .infinity, alignment: .center)
