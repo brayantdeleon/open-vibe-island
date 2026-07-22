@@ -47,6 +47,40 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
+    func ordinaryRowsStartCollapsedWhileRequiredActionsStayExpanded() {
+        let running = AgentSession(
+            id: "running",
+            title: "Running task",
+            tool: .codex,
+            phase: .running,
+            summary: "Thinking",
+            updatedAt: .now
+        )
+        let completed = AgentSession(
+            id: "completed",
+            title: "Completed task",
+            tool: .codex,
+            phase: .completed,
+            summary: "Done",
+            updatedAt: .now
+        )
+        let approval = AgentSession(
+            id: "approval",
+            title: "Approval task",
+            tool: .codex,
+            phase: .waitingForApproval,
+            summary: "Needs approval",
+            updatedAt: .now
+        )
+
+        #expect(!running.defaultsToExpandedIslandDetails(isActionable: false))
+        #expect(!running.defaultsToExpandedIslandDetails(isActionable: true))
+        #expect(!completed.defaultsToExpandedIslandDetails(isActionable: true))
+        #expect(!approval.defaultsToExpandedIslandDetails(isActionable: false))
+        #expect(approval.defaultsToExpandedIslandDetails(isActionable: true))
+    }
+
+    @Test
     func attachedCompletedSessionStaysActiveWhileRecent() {
         let referenceDate = Date(timeIntervalSince1970: 10_000)
         let session = AgentSession(
