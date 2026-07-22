@@ -17,6 +17,7 @@ enum IslandSessionPresence: Equatable {
 extension AgentSession {
     private static let collapsedDetailAgeThreshold: TimeInterval = 20 * 60
     private static let islandActivityThreshold: TimeInterval = 20 * 60
+    static let islandCompletedVisibilityWindow: TimeInterval = 60 * 60
     static let staleCompletedDisplayThreshold: TimeInterval = 5 * 60
 
     /// Whether this session represents a subagent (worktree agent) that should
@@ -34,6 +35,17 @@ extension AgentSession {
 
     var islandActivityDate: Date {
         updatedAt
+    }
+
+    /// Completed conversations remain in the expanded island for one hour,
+    /// independent of process/attachment reconciliation. Non-completed rows
+    /// retain the stricter live visibility rules so restored stale sessions do
+    /// not appear to be actively running.
+    func isVisibleInIslandSessionList(at referenceDate: Date) -> Bool {
+        guard phase == .completed else {
+            return isVisibleInIsland
+        }
+        return referenceDate.timeIntervalSince(islandActivityDate) <= Self.islandCompletedVisibilityWindow
     }
 
     var spotlightPrimaryText: String {

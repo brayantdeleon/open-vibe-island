@@ -5,6 +5,48 @@ import OpenIslandCore
 
 struct AgentSessionPresentationTests {
     @Test
+    func completedSessionVisibilityIncludesExactlyOneHourButNotMore() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let exactlyOneHour = AgentSession(
+            id: "one-hour",
+            title: "Codex · one-hour",
+            tool: .codex,
+            attachmentState: .stale,
+            phase: .completed,
+            summary: "Done",
+            updatedAt: now.addingTimeInterval(-3_600)
+        )
+        var moreThanOneHour = AgentSession(
+            id: "over-one-hour",
+            title: "Codex · over-one-hour",
+            tool: .codex,
+            attachmentState: .attached,
+            phase: .completed,
+            summary: "Done",
+            updatedAt: now.addingTimeInterval(-3_600.001)
+        )
+        moreThanOneHour.isProcessAlive = true
+
+        #expect(exactlyOneHour.isVisibleInIslandSessionList(at: now))
+        #expect(!moreThanOneHour.isVisibleInIslandSessionList(at: now))
+    }
+
+    @Test
+    func staleRunningSessionStillRequiresLiveVisibility() {
+        let session = AgentSession(
+            id: "stale-running",
+            title: "Codex · stale",
+            tool: .codex,
+            attachmentState: .stale,
+            phase: .running,
+            summary: "Recovered",
+            updatedAt: .now
+        )
+
+        #expect(!session.isVisibleInIslandSessionList(at: .now))
+    }
+
+    @Test
     func attachedCompletedSessionStaysActiveWhileRecent() {
         let referenceDate = Date(timeIntervalSince1970: 10_000)
         let session = AgentSession(

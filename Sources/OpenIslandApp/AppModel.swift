@@ -51,7 +51,13 @@ final class AppModel {
             bridgeServer.updateStateSnapshot(state)
         }
     }
-    @ObservationIgnored private var _cachedSessionBuckets: (primary: [AgentSession], overflow: [AgentSession])?
+    @ObservationIgnored private var _cachedSessionBuckets: SessionBucketCache?
+
+    private struct SessionBucketCache {
+        let primary: [AgentSession]
+        let overflow: [AgentSession]
+        let validThrough: Date?
+    }
 
     /// Monotonic ticket assigned the first time a session ID shows up in the
     /// closed-island's right-slot surfaced set. Drives the grid's display
@@ -1664,16 +1670,25 @@ final class AppModel {
 
 
     private var sessionBuckets: (primary: [AgentSession], overflow: [AgentSession]) {
-        if let cached = _cachedSessionBuckets {
-            return cached
+        let now = Date.now
+        if let cached = _cachedSessionBuckets,
+           cached.validThrough.map({ now <= $0 }) ?? true {
+            return (cached.primary, cached.overflow)
         }
-        let result = computeSessionBuckets()
-        _cachedSessionBuckets = result
+        let result = computeSessionBuckets(at: now)
+        let validThrough = result.primary
+            .filter { $0.phase == .completed }
+            .map { $0.islandActivityDate.addingTimeInterval(AgentSession.islandCompletedVisibilityWindow) }
+            .min()
+        _cachedSessionBuckets = SessionBucketCache(
+            primary: result.primary,
+            overflow: result.overflow,
+            validThrough: validThrough
+        )
         return result
     }
 
-    private func computeSessionBuckets() -> (primary: [AgentSession], overflow: [AgentSession]) {
-        let now = Date.now
+    private func computeSessionBuckets(at now: Date) -> (primary: [AgentSession], overflow: [AgentSession]) {
         let rankedSessions = state.sessions.sorted { lhs, rhs in
             let lhsScore = displayPriority(for: lhs, now: now)
             let rhsScore = displayPriority(for: rhs, now: now)
@@ -1692,7 +1707,7 @@ final class AppModel {
         var primary: [AgentSession] = []
         var claimedLiveAttachmentKeys: Set<String> = []
 
-        for session in rankedSessions where session.isVisibleInIsland {
+        for session in rankedSessions where session.isVisibleInIslandSessionList(at: now) {
             guard !session.isSubagentSession else { continue }
 
             if let liveAttachmentKey = monitoring.liveAttachmentKey(for: session) {
