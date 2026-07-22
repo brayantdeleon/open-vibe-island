@@ -53,8 +53,8 @@ struct V6LeadingActivityView: View {
             UnifiedBars(mode: mode, size: 24)
                 .frame(width: 24, height: 24)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.42)) { context in
-                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.42) % 2
+            TimelineView(.periodic(from: .now, by: 0.14)) { context in
+                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.14)
                 HStack(spacing: pets.count > 1 ? -2 : 0) {
                     ForEach(pets, id: \.self) { pet in
                         MiniSessionPet(pet: pet, frame: frame)
@@ -84,12 +84,26 @@ private struct MiniSessionPet: View {
     let pet: IslandLeadingPet
     let frame: Int
 
+    private static let installedCodexFrames = PetdexPetLoader.selectedRunningFrames()
+
+    @ViewBuilder
     var body: some View {
-        Canvas(rendersAsynchronously: false) { context, size in
-            switch pet {
-            case .codex:
-                drawCodexPet(in: context, size: size)
-            case .claude:
+        switch pet {
+        case .codex:
+            if !Self.installedCodexFrames.isEmpty {
+                let image = Self.installedCodexFrames[frame % Self.installedCodexFrames.count]
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFit()
+                    .scaleEffect(1.4)
+            } else {
+                Canvas(rendersAsynchronously: false) { context, size in
+                    drawCodexPet(in: context, size: size)
+                }
+            }
+        case .claude:
+            Canvas(rendersAsynchronously: false) { context, size in
                 drawClaudeCrab(in: context, size: size)
             }
         }
@@ -98,7 +112,8 @@ private struct MiniSessionPet: View {
     private func drawCodexPet(in context: GraphicsContext, size: CGSize) {
         let scale = min(size.width / 20, size.height / 20)
         let x = (size.width - 20 * scale) / 2
-        let bounce = CGFloat(frame == 0 ? 1 : 0) * scale
+        let animationFrame = frame % 2
+        let bounce = CGFloat(animationFrame == 0 ? 1 : 0) * scale
         let mint = Color(red: 0.34, green: 0.91, blue: 0.67)
         let paper = V6Palette.paper
         let ink = V6Palette.ink
@@ -121,14 +136,15 @@ private struct MiniSessionPet: View {
         context.fill(rect(6, 8, 2, 2, radius: 1), with: .color(ink))
         context.fill(rect(12, 8, 2, 2, radius: 1), with: .color(ink))
         context.fill(rect(8, 12, 4, 1.5, radius: 0.75), with: .color(mint))
-        context.fill(rect(frame == 0 ? 4 : 5, 15, 4, 2, radius: 1), with: .color(paper))
-        context.fill(rect(frame == 0 ? 12 : 11, 15, 4, 2, radius: 1), with: .color(paper))
+        context.fill(rect(animationFrame == 0 ? 4 : 5, 15, 4, 2, radius: 1), with: .color(paper))
+        context.fill(rect(animationFrame == 0 ? 12 : 11, 15, 4, 2, radius: 1), with: .color(paper))
     }
 
     private func drawClaudeCrab(in context: GraphicsContext, size: CGSize) {
         let scale = min(size.width / 20, size.height / 20)
         let x = (size.width - 20 * scale) / 2
-        let bounce = CGFloat(frame == 0 ? 0 : 1) * scale
+        let animationFrame = frame % 2
+        let bounce = CGFloat(animationFrame == 0 ? 0 : 1) * scale
         let orange = Color(red: 0.85, green: 0.39, blue: 0.22)
         let highlight = Color(red: 0.98, green: 0.57, blue: 0.35)
         let ink = V6Palette.ink
@@ -143,8 +159,8 @@ private struct MiniSessionPet: View {
         }
 
         // Original pixel-crab silhouette with alternating raised claws.
-        let leftClawY: CGFloat = frame == 0 ? 5 : 3
-        let rightClawY: CGFloat = frame == 0 ? 3 : 5
+        let leftClawY: CGFloat = animationFrame == 0 ? 5 : 3
+        let rightClawY: CGFloat = animationFrame == 0 ? 3 : 5
         context.fill(rect(1, leftClawY, 5, 4, radius: 2), with: .color(highlight))
         context.fill(rect(14, rightClawY, 5, 4, radius: 2), with: .color(highlight))
         context.fill(rect(4, 7, 12, 8, radius: 3), with: .color(orange))
