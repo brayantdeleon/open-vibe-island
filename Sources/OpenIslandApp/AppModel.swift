@@ -33,7 +33,10 @@ final class AppModel {
     private static let liveSessionStalenessWindow: TimeInterval = 15 * 60
     private static let jumpOverlayDismissLeadTime: Duration = .milliseconds(20)
     private static let agentsGridObservedSequenceLimit = 512
-    static let hoverOpenDelay: TimeInterval = 0.15
+    /// The pointer must remain continuously inside the closed island before a
+    /// passive hover may open it. This keeps ordinary menu-bar navigation from
+    /// expanding the island while preserving immediate click-to-open behavior.
+    static let hoverOpenDelay: TimeInterval = 2.0
 
     struct AcceptanceStep: Identifiable {
         let id: String

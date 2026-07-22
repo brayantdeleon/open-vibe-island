@@ -3,6 +3,53 @@ import Testing
 @testable import OpenIslandApp
 
 struct OverlayPanelControllerTests {
+    @Test @MainActor
+    func closedIslandHoverRequiresTwoSecondDwell() {
+        #expect(AppModel.hoverOpenDelay == 2.0)
+    }
+
+    @Test @MainActor
+    func hoverDwellDoesNotFireBeforeDelay() {
+        var scheduledDelay: TimeInterval?
+        var scheduledWorkItem: DispatchWorkItem?
+        let timer = HoverDwellTimer { delay, workItem in
+            scheduledDelay = delay
+            scheduledWorkItem = workItem
+        }
+        var fired = false
+
+        timer.schedule(after: 2.0) {
+            fired = true
+        }
+
+        #expect(scheduledDelay == 2.0)
+        #expect(!fired)
+        #expect(timer.isPending)
+
+        scheduledWorkItem?.perform()
+
+        #expect(fired)
+        #expect(!timer.isPending)
+    }
+
+    @Test @MainActor
+    func leavingHoverRegionCancelsPendingDwell() {
+        var scheduledWorkItem: DispatchWorkItem?
+        let timer = HoverDwellTimer { _, workItem in
+            scheduledWorkItem = workItem
+        }
+        var fired = false
+
+        timer.schedule(after: 2.0) {
+            fired = true
+        }
+        timer.cancel()
+        scheduledWorkItem?.perform()
+
+        #expect(!fired)
+        #expect(!timer.isPending)
+    }
+
     @Test
     func closedSurfaceRectCentersOnNotch() {
         let notchRect = NSRect(x: 200, y: 900, width: 200, height: 38)

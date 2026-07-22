@@ -4,6 +4,45 @@ import SwiftUI
 import OpenIslandCore
 
 @MainActor
+final class HoverDwellTimer {
+    typealias Scheduler = (_ delay: TimeInterval, _ workItem: DispatchWorkItem) -> Void
+
+    private let scheduler: Scheduler
+    private var workItem: DispatchWorkItem?
+    private var generation: UInt64 = 0
+
+    init(scheduler: @escaping Scheduler = { delay, workItem in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }) {
+        self.scheduler = scheduler
+    }
+
+    var isPending: Bool {
+        workItem != nil
+    }
+
+    func schedule(after delay: TimeInterval, action: @escaping @MainActor () -> Void) {
+        guard workItem == nil else { return }
+
+        generation &+= 1
+        let scheduledGeneration = generation
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, self.generation == scheduledGeneration else { return }
+            self.workItem = nil
+            action()
+        }
+        workItem = item
+        scheduler(delay, item)
+    }
+
+    func cancel() {
+        generation &+= 1
+        workItem?.cancel()
+        workItem = nil
+    }
+}
+
+@MainActor
 final class OverlayPanelController {
     // Leave enough room beside the hardware notch for both provider usage chips.
     private static let preferredNotchOpenedPanelWidth: CGFloat = 600
@@ -34,8 +73,7 @@ final class OverlayPanelController {
 
     private var panel: NotchPanel?
     private var eventMonitors = NotchEventMonitors()
-    private var hoverTimer: DispatchWorkItem?
-    private var hoverCancelGrace: DispatchWorkItem?
+    private let hoverDwellTimer = HoverDwellTimer()
     weak var model: AppModel?
     private(set) var notchRect: NSRect = .zero
 
@@ -268,7 +306,7 @@ final class OverlayPanelController {
         let inClosedSurfaceArea = isPointInClosedSurfaceArea(screenLocation)
 
         if model.notchStatus == .closed && inClosedSurfaceArea {
-            cancelHoverOpenImmediately()
+            cancelHoverOpen()
             model.notchOpen(reason: .click)
         } else if model.notchStatus == .opened {
             if !isPointInExpandedArea(screenLocation) {
@@ -278,27 +316,13 @@ final class OverlayPanelController {
         }
     }
 
-    /// Grace period before a hover-open timer is cancelled.  Prevents
-    /// mouse jitter at the notch edge from resetting the delay.
-    private static let hoverCancelGracePeriod: TimeInterval = 0.1
-
     private func scheduleHoverOpen() {
-        // Mouse re-entered during grace period — just revoke the cancel.
-        hoverCancelGrace?.cancel()
-        hoverCancelGrace = nil
-
         guard model != nil else { return }
 
-        guard hoverTimer == nil else { return }
-
-        let item = DispatchWorkItem { [weak self] in
+        hoverDwellTimer.schedule(after: AppModel.hoverOpenDelay) { [weak self] in
             guard let self, let model = self.model else { return }
             self.performHoverOpen(model)
-            self.hoverTimer = nil
         }
-
-        hoverTimer = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + AppModel.hoverOpenDelay, execute: item)
     }
 
     private func performHoverOpen(_ model: AppModel) {
@@ -315,32 +339,7 @@ final class OverlayPanelController {
     }
 
     private func cancelHoverOpen() {
-        guard hoverTimer != nil else { return }
-
-        // Don't cancel immediately — allow a short grace period so that
-        // mouse jitter at the notch edge doesn't restart the timer.
-        guard hoverCancelGrace == nil else { return }
-
-        let grace = DispatchWorkItem { [weak self] in
-            self?.hoverTimer?.cancel()
-            self?.hoverTimer = nil
-            self?.hoverCancelGrace = nil
-        }
-
-        hoverCancelGrace = grace
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.hoverCancelGracePeriod,
-            execute: grace
-        )
-    }
-
-    /// Cancel without grace period — used for click-to-open where the
-    /// hover timer must not fire after the click already opened the panel.
-    private func cancelHoverOpenImmediately() {
-        hoverCancelGrace?.cancel()
-        hoverCancelGrace = nil
-        hoverTimer?.cancel()
-        hoverTimer = nil
+        hoverDwellTimer.cancel()
     }
 
     // MARK: - Hit testing geometry
