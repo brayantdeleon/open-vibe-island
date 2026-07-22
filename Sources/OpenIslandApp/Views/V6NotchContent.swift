@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import OpenIslandCore
 
@@ -36,15 +37,17 @@ enum IslandLeadingPet: String, Equatable, Hashable {
 
 // MARK: - Leading activity renderer
 
-/// Replaces the waveform while Codex or Claude is actively running. The
-/// mascots are drawn in SwiftUI so the OSS app does not redistribute artwork
-/// from either vendor's application bundle.
+/// Replaces the waveform while Codex or Claude is actively running.
 struct V6LeadingActivityView: View {
     let mode: UnifiedBars.Mode
     let pets: [IslandLeadingPet]
 
     static func intrinsicWidth(for pets: [IslandLeadingPet]) -> CGFloat {
-        pets.count > 1 ? 28 : 24
+        pets.count > 1 ? 52 : 24
+    }
+
+    static func macbookLeadingExtension(for pets: [IslandLeadingPet]) -> CGFloat {
+        max(0, intrinsicWidth(for: pets) - 24)
     }
 
     @ViewBuilder
@@ -55,10 +58,10 @@ struct V6LeadingActivityView: View {
         } else {
             TimelineView(.periodic(from: .now, by: 0.14)) { context in
                 let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.14)
-                HStack(spacing: pets.count > 1 ? -2 : 0) {
+                HStack(spacing: pets.count > 1 ? 4 : 0) {
                     ForEach(pets, id: \.self) { pet in
                         MiniSessionPet(pet: pet, frame: frame)
-                            .frame(width: pets.count > 1 ? 15 : 20, height: 20)
+                            .frame(width: pets.count > 1 ? 24 : 20, height: 20)
                     }
                 }
             }
@@ -73,9 +76,9 @@ struct V6LeadingActivityView: View {
         case [.codex]:
             return "Codex session running"
         case [.claude]:
-            return "Claude session running"
+            return "Clawd — Claude Code session running"
         default:
-            return "Codex and Claude sessions running"
+            return "Codex and Clawd — Claude Code sessions running"
         }
     }
 }
@@ -85,6 +88,16 @@ private struct MiniSessionPet: View {
     let frame: Int
 
     private static let installedCodexFrames = PetdexPetLoader.selectedRunningFrames()
+    private static let clawdImage: CGImage? = {
+        guard
+            let url = Bundle.appResources.url(forResource: "clawd-menubar", withExtension: "png"),
+            let image = NSImage(contentsOf: url)
+        else {
+            return nil
+        }
+
+        return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+    }()
 
     @ViewBuilder
     var body: some View {
@@ -103,10 +116,19 @@ private struct MiniSessionPet: View {
                 }
             }
         case .claude:
-            Canvas(rendersAsynchronously: false) { context, size in
-                drawClaudeCrab(in: context, size: size)
+            if let image = Self.clawdImage {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFit()
+                    .offset(y: clawdHopOffset)
             }
         }
+    }
+
+    private var clawdHopOffset: CGFloat {
+        let offsets: [CGFloat] = [0, -1, -2.5, -3.5, -2.5, -1]
+        return offsets[frame % offsets.count]
     }
 
     private func drawCodexPet(in context: GraphicsContext, size: CGSize) {
@@ -140,38 +162,6 @@ private struct MiniSessionPet: View {
         context.fill(rect(animationFrame == 0 ? 12 : 11, 15, 4, 2, radius: 1), with: .color(paper))
     }
 
-    private func drawClaudeCrab(in context: GraphicsContext, size: CGSize) {
-        let scale = min(size.width / 20, size.height / 20)
-        let x = (size.width - 20 * scale) / 2
-        let animationFrame = frame % 2
-        let bounce = CGFloat(animationFrame == 0 ? 0 : 1) * scale
-        let orange = Color(red: 0.85, green: 0.39, blue: 0.22)
-        let highlight = Color(red: 0.98, green: 0.57, blue: 0.35)
-        let ink = V6Palette.ink
-
-        func rect(_ px: CGFloat, _ py: CGFloat, _ width: CGFloat, _ height: CGFloat, radius: CGFloat = 0) -> Path {
-            Path(roundedRect: CGRect(
-                x: x + px * scale,
-                y: py * scale - bounce,
-                width: width * scale,
-                height: height * scale
-            ), cornerRadius: radius * scale)
-        }
-
-        // Original pixel-crab silhouette with alternating raised claws.
-        let leftClawY: CGFloat = animationFrame == 0 ? 5 : 3
-        let rightClawY: CGFloat = animationFrame == 0 ? 3 : 5
-        context.fill(rect(1, leftClawY, 5, 4, radius: 2), with: .color(highlight))
-        context.fill(rect(14, rightClawY, 5, 4, radius: 2), with: .color(highlight))
-        context.fill(rect(4, 7, 12, 8, radius: 3), with: .color(orange))
-        context.fill(rect(6, 5, 2, 4, radius: 1), with: .color(highlight))
-        context.fill(rect(12, 5, 2, 4, radius: 1), with: .color(highlight))
-        context.fill(rect(6.5, 5.5, 1, 1.5, radius: 0.5), with: .color(ink))
-        context.fill(rect(12.5, 5.5, 1, 1.5, radius: 0.5), with: .color(ink))
-        context.fill(rect(3, 14, 4, 2, radius: 1), with: .color(highlight))
-        context.fill(rect(8, 15, 4, 2, radius: 1), with: .color(highlight))
-        context.fill(rect(13, 14, 4, 2, radius: 1), with: .color(highlight))
-    }
 }
 
 // MARK: - Right-slot renderers
@@ -438,7 +428,8 @@ struct V6ClosedPill: View {
 
     private var macbookBody: some View {
         let halfReserve: CGFloat = 44
-        let outer = halfReserve + physicalNotchWidth + halfReserve
+        let leadingExtension = V6LeadingActivityView.macbookLeadingExtension(for: activePets)
+        let outer = halfReserve + leadingExtension + physicalNotchWidth + halfReserve
 
         return ZStack {
             V6ClosedPillShape()
@@ -457,6 +448,9 @@ struct V6ClosedPill: View {
             .padding(.horizontal, pad)
         }
         .frame(width: outer, height: height)
+        // The layout grows only toward the left so the hardware notch and
+        // right-side session count remain locked to their existing positions.
+        .offset(x: -leadingExtension / 2)
     }
 }
 
