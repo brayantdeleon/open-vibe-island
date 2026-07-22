@@ -233,11 +233,6 @@ struct IslandPanelView: View {
                 isHovering = hovering
             }
         }
-        .onTapGesture {
-            if model.notchStatus != .opened {
-                model.notchOpen(reason: .click)
-            }
-        }
     }
 
     private func syncOpenedSurfaceMount(with status: NotchStatus, immediate: Bool = false) {
@@ -272,20 +267,46 @@ struct IslandPanelView: View {
     /// TimelineView internally for bar animation.
     @ViewBuilder
     private func v6ClosedSurface() -> some View {
+        if model.islandClosedPresentation == .menuBarOnly {
+            TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+                closedPresentationSurface(menuBarVisible: NSMenu.menuBarVisible())
+            }
+        } else {
+            closedPresentationSurface(menuBarVisible: true)
+        }
+    }
+
+    @ViewBuilder
+    private func closedPresentationSurface(menuBarVisible: Bool) -> some View {
+        let presentation = model.islandClosedPresentation
         let layout: V6ClosedLayout = isExternalDisplayPlacement ? .external : .macbook
         let physicalNotchWidth: CGFloat = targetOverlayScreen?.notchSize.width ?? 180
-        V6ClosedPill(
-            mode: model.islandClosedMode,
-            label: layout == .external ? model.islandClosedLabel() : nil,
-            rightSlot: model.islandClosedRightSlotContent(),
-            layout: layout,
-            activePets: model.islandClosedActivePets,
-            height: closedNotchHeight,
-            physicalNotchWidth: layout == .macbook ? physicalNotchWidth : 0,
-            minWidth: 70
-        )
-        .scaleEffect(isPopping ? 1.04 : 1, anchor: .top)
-        .animation(popAnimation, value: isPopping)
+
+        if presentation.showsClosedSurface(
+            hasActivity: model.hasClosedIslandActivity,
+            menuBarVisible: menuBarVisible
+        ) {
+            if presentation == .minimal {
+                Capsule(style: .continuous)
+                    .fill(model.islandClosedMode == .waiting ? IslandDesignPalette.Status.waitingAggregate : V6Palette.paper.opacity(0.65))
+                    .frame(width: 38, height: 3)
+                    .frame(height: closedNotchHeight, alignment: .bottom)
+                    .padding(.bottom, 2)
+            } else {
+                V6ClosedPill(
+                    mode: model.islandClosedMode,
+                    label: layout == .external ? model.islandClosedLabel() : nil,
+                    rightSlot: model.islandClosedRightSlotContent(),
+                    layout: layout,
+                    activePets: model.islandClosedActivePets,
+                    height: closedNotchHeight,
+                    physicalNotchWidth: layout == .macbook ? physicalNotchWidth : 0,
+                    minWidth: 70
+                )
+                .scaleEffect(isPopping ? 1.04 : 1, anchor: .top)
+                .animation(popAnimation, value: isPopping)
+            }
+        }
     }
 
     // MARK: - Opened surface
