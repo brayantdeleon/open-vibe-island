@@ -1697,7 +1697,7 @@ private struct IslandSessionRow: View {
                 Button(session.permissionRequest?.secondaryActionTitle ?? lang.t("approval.deny")) { onApprove?(.deny) }
                     .buttonStyle(IslandActionButtonStyle(kind: .secondary, expands: true))
                 Button(session.permissionRequest?.primaryActionTitle ?? lang.t("approval.allowOnce")) { onApprove?(.allowOnce) }
-                    .buttonStyle(IslandActionButtonStyle(kind: .warning, expands: true))
+                    .buttonStyle(IslandActionButtonStyle(kind: .success, expands: true))
                 if let toolName = session.permissionRequest?.toolName {
                     Button(lang.t("approval.alwaysAllow", toolName)) {
                         let rule = ClaudePermissionRuleValue(toolName: toolName)
@@ -1708,7 +1708,11 @@ private struct IslandSessionRow: View {
                         )
                         onApprove?(.allowWithUpdates([update]))
                     }
-                    .buttonStyle(IslandActionButtonStyle(kind: .primary, expands: true))
+                    .buttonStyle(IslandActionButtonStyle(
+                        kind: .primary,
+                        expands: true,
+                        labelLineLimit: nil
+                    ))
                 }
             }
         }
@@ -2580,11 +2584,12 @@ private struct IslandActionButtonStyle: ButtonStyle {
     enum Kind {
         case primary
         case secondary
-        case warning
+        case success
     }
 
     let kind: Kind
     var expands = false
+    var labelLineLimit: Int? = 1
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -2592,7 +2597,10 @@ private struct IslandActionButtonStyle: ButtonStyle {
         configuration.label
             .font(.system(size: 11.8, weight: .semibold))
             .foregroundStyle(foregroundColor)
-            .lineLimit(1)
+            .lineLimit(labelLineLimit)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: labelLineLimit != 1)
+            .frame(minHeight: labelLineLimit == 1 ? nil : 30)
             .frame(maxWidth: expands ? .infinity : nil)
             .padding(.horizontal, 13)
             .padding(.vertical, 8)
@@ -2612,8 +2620,8 @@ private struct IslandActionButtonStyle: ButtonStyle {
         switch kind {
         case .primary:
             return .black.opacity(0.88)
-        case .warning:
-            return .white
+        case .success:
+            return .black.opacity(0.82)
         case .secondary:
             return V6Palette.paper.opacity(0.78)
         }
@@ -2627,8 +2635,8 @@ private struct IslandActionButtonStyle: ButtonStyle {
         switch kind {
         case .primary:
             return V6Palette.paper.opacity(0.86)
-        case .warning:
-            return Color(red: 0.85, green: 0.55, blue: 0.15).opacity(0.42)
+        case .success:
+            return Color(red: 0.66, green: 0.91, blue: 0.70).opacity(0.7)
         case .secondary:
             return .white.opacity(0.07)
         }
@@ -2643,8 +2651,8 @@ private struct IslandActionButtonStyle: ButtonStyle {
         switch kind {
         case .primary:
             return V6Palette.paper.opacity(pressedFactor)
-        case .warning:
-            return Color(red: 0.85, green: 0.55, blue: 0.15).opacity(pressedFactor)
+        case .success:
+            return Color(red: 0.66, green: 0.91, blue: 0.70).opacity(pressedFactor)
         case .secondary:
             return Color.white.opacity(isPressed ? 0.11 : 0.065)
         }
