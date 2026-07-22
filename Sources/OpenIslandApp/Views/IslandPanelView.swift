@@ -1787,11 +1787,19 @@ private struct IslandSessionRow: View {
     // MARK: - Actionable helpers
 
     private var completionMessageText: String {
-        if let text = session.completionAssistantMessageText?.trimmedForNotificationCard, !text.isEmpty {
-            return text
+        if let source = session.completionAssistantMessageText {
+            let text = CompletionMessageSanitizer.textForDisplay(source).trimmedForNotificationCard
+            if !text.isEmpty {
+                return text
+            }
         }
-        let summary = session.summary.trimmedForNotificationCard
-        return summary == SessionPhase.completed.displayName ? "" : summary
+        let summary = CompletionMessageSanitizer.textForDisplay(
+            session.summary
+        ).trimmedForNotificationCard
+        if summary == SessionPhase.completed.displayName {
+            return ""
+        }
+        return summary
     }
 
     private var commandLabel: String {

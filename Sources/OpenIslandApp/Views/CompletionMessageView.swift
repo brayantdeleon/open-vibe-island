@@ -8,6 +8,79 @@ enum CompletionMessageSegment: Equatable, Sendable {
     case math(String, display: Bool)
 }
 
+enum CompletionMessageSanitizer {
+    static func textForDisplay(_ source: String) -> String {
+        let lines = source.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        var visibleLines: [Substring] = []
+        var activeFence: Fence?
+
+        for line in lines {
+            if let fence = activeFence {
+                visibleLines.append(line)
+                if isClosingFence(line, for: fence) {
+                    activeFence = nil
+                }
+                continue
+            }
+
+            if let fence = openingFence(in: line) {
+                activeFence = fence
+                visibleLines.append(line)
+                continue
+            }
+
+            if !isCodexControlDirective(line) {
+                visibleLines.append(line)
+            }
+        }
+
+        return visibleLines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private struct Fence {
+        let marker: Character
+        let count: Int
+    }
+
+    private static func isCodexControlDirective(_ line: Substring) -> Bool {
+        let indentation = line.prefix(while: { $0 == " " })
+        guard indentation.count <= 3,
+              !line.prefix(indentation.count + 1).contains("\t")
+        else { return false }
+
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("::"), trimmed.hasSuffix("}"),
+              let brace = trimmed.firstIndex(of: "{")
+        else { return false }
+
+        let nameStart = trimmed.index(trimmed.startIndex, offsetBy: 2)
+        guard nameStart < brace else { return false }
+        let name = trimmed[nameStart..<brace]
+        return name.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
+    }
+
+    private static func openingFence(in line: Substring) -> Fence? {
+        let trimmed = line.drop(while: { $0 == " " })
+        guard line.count - trimmed.count <= 3,
+              let marker = trimmed.first,
+              marker == "`" || marker == "~"
+        else { return nil }
+
+        let count = trimmed.prefix(while: { $0 == marker }).count
+        return count >= 3 ? Fence(marker: marker, count: count) : nil
+    }
+
+    private static func isClosingFence(_ line: Substring, for fence: Fence) -> Bool {
+        let trimmed = line.drop(while: { $0 == " " })
+        guard line.count - trimmed.count <= 3 else { return false }
+        let markerCount = trimmed.prefix(while: { $0 == fence.marker }).count
+        guard markerCount >= fence.count else { return false }
+        return trimmed.dropFirst(markerCount).allSatisfy(\.isWhitespace)
+    }
+}
+
 enum CompletionMessageParser {
     static func segments(in source: String) -> [CompletionMessageSegment] {
         var result: [CompletionMessageSegment] = []
