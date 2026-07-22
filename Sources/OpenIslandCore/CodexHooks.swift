@@ -92,7 +92,10 @@ public struct CodexHookToolInput: Equatable, Codable, Sendable {
         }
 
         command = object["command"]?.stringScalar
+            ?? object["cmd"]?.stringScalar
         description = object["description"]?.stringScalar
+            ?? object["justification"]?.stringScalar
+            ?? object["reason"]?.stringScalar
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -470,13 +473,20 @@ public extension CodexHookPayload {
     }
 
     var permissionRequestDetail: String? {
-        if let description = toolInput?.description?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !description.isEmpty {
+        let description = toolInput?.description?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let command = commandText?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let description, !description.isEmpty,
+           let command, !command.isEmpty,
+           description != command {
+            return "\(description)\n\nCommand:\n\(command)"
+        }
+
+        if let description, !description.isEmpty {
             return description
         }
 
-        if let command = commandText?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !command.isEmpty {
+        if let command, !command.isEmpty {
             return command
         }
 
@@ -509,7 +519,10 @@ public extension CodexHookPayload {
 
     private func isBashToolName(_ toolName: String) -> Bool {
         let normalized = toolName.lowercased()
-        return normalized == "bash" || normalized == "shell"
+        return normalized == "bash"
+            || normalized == "shell"
+            || normalized == "exec_command"
+            || normalized == "unified_exec"
     }
 
     private func clipped(_ value: String?, limit: Int = 110) -> String? {

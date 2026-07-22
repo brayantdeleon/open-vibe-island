@@ -748,6 +748,34 @@ struct SessionStateTests {
     }
 
     @Test
+    func codexDesktopExecApprovalUsesReadableCurrentFieldNames() throws {
+        let input = try JSONDecoder().decode(
+            CodexHookToolInput.self,
+            from: Data(#"{"cmd":"open -na '/Applications/Test.app'","justification":"Allow opening the test app?","sandbox_permissions":"require_escalated"}"#.utf8)
+        )
+        let payload = CodexHookPayload(
+            cwd: "/tmp/worktree",
+            hookEventName: .permissionRequest,
+            model: "gpt-5-codex",
+            permissionMode: .default,
+            sessionID: "desktop-current-fields",
+            terminalApp: "Codex.app",
+            transcriptPath: nil,
+            toolName: "exec_command",
+            toolInput: input
+        )
+
+        #expect(input.command == "open -na '/Applications/Test.app'")
+        #expect(input.description == "Allow opening the test app?")
+        #expect(payload.permissionRequestTitle == "Run Bash command")
+        #expect(payload.permissionRequestSummary == "Allow opening the test app?")
+        #expect(
+            payload.permissionRequestDetail
+                == "Allow opening the test app?\n\nCommand:\nopen -na '/Applications/Test.app'"
+        )
+    }
+
+    @Test
     func codexPermissionRequestReturnsDenyDirectiveAfterRejection() async throws {
         let socketURL = BridgeSocketLocation.uniqueTestURL()
         let server = BridgeServer(socketURL: socketURL)

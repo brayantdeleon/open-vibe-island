@@ -338,7 +338,7 @@ extension AgentSession {
         spotlightShowsDetailLines(at: .now)
     }
 
-    func defaultsToExpandedIslandDetails(isActionable: Bool) -> Bool {
+    func defaultsToExpandedNotificationDetails(isActionable: Bool) -> Bool {
         phase == .completed || (isActionable && phase.requiresAttention)
     }
 

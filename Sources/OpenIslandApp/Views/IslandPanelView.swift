@@ -109,8 +109,6 @@ struct IslandPanelView: View {
     @State private var showingQuitConfirmation = false
     @State private var keepsOpenedSurfaceMounted = false
     @State private var openedSurfaceMountGeneration: UInt64 = 0
-    @State private var expandedSessionSectionIDs: Set<String> = []
-    @State private var collapsedSessionSectionIDs: Set<String> = []
 
     private var isOpened: Bool {
         model.notchStatus == .opened
@@ -619,32 +617,27 @@ struct IslandPanelView: View {
                 ForEach(model.islandSessionSections) { section in
                     VStack(alignment: .leading, spacing: 0) {
                         if model.islandSessionGroup != .none {
-                            sessionSectionHeader(
-                                section,
-                                isExpanded: isSessionSectionExpanded(section)
-                            )
+                            sessionSectionHeader(section)
                         }
 
-                        if model.islandSessionGroup == .none || isSessionSectionExpanded(section) {
-                            ForEach(section.sessions) { session in
-                                IslandSessionRow(
-                                    session: session,
-                                    referenceDate: referenceDate,
-                                    stateIndicator: model.islandSessionStateIndicator,
-                                    completedStaleThreshold: model.completedStaleThreshold.seconds,
-                                    isActionable: session.phase.requiresAttention || session.id == actionableSessionID,
-                                    useDrawingGroup: model.notchStatus == .opened,
-                                    isInteractive: model.notchStatus == .opened,
-                                    sideInset: sessionListSideInset,
-                                    lang: model.lang,
-                                    onApprove: { model.approvePermission(for: session.id, action: $0) },
-                                    onAnswer: { model.answerQuestion(for: session.id, answer: $0) },
-                                    onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
-                                        ? { model.replyToSession(session, text: $0) } : nil,
-                                    onJump: { model.jumpToSession(session) },
-                                    onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
-                                )
-                            }
+                        ForEach(section.sessions) { session in
+                            IslandSessionRow(
+                                session: session,
+                                referenceDate: referenceDate,
+                                stateIndicator: model.islandSessionStateIndicator,
+                                completedStaleThreshold: model.completedStaleThreshold.seconds,
+                                isActionable: session.phase.requiresAttention || session.id == actionableSessionID,
+                                useDrawingGroup: model.notchStatus == .opened,
+                                isInteractive: model.notchStatus == .opened,
+                                sideInset: sessionListSideInset,
+                                lang: model.lang,
+                                onApprove: { model.approvePermission(for: session.id, action: $0) },
+                                onAnswer: { model.answerQuestion(for: session.id, answer: $0) },
+                                onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
+                                    ? { model.replyToSession(session, text: $0) } : nil,
+                                onJump: { model.jumpToSession(session) },
+                                onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
+                            )
                         }
                     }
                 }
@@ -674,32 +667,27 @@ struct IslandPanelView: View {
         ForEach(model.islandSessionSections) { section in
             VStack(alignment: .leading, spacing: 0) {
                 if model.islandSessionGroup != .none {
-                    sessionSectionHeader(
-                        section,
-                        isExpanded: isSessionSectionExpanded(section)
-                    )
+                    sessionSectionHeader(section)
                 }
 
-                if model.islandSessionGroup == .none || isSessionSectionExpanded(section) {
-                    ForEach(section.sessions) { session in
-                        IslandSessionRow(
-                            session: session,
-                            referenceDate: referenceDate,
-                            stateIndicator: model.islandSessionStateIndicator,
-                            completedStaleThreshold: model.completedStaleThreshold.seconds,
-                            isActionable: session.phase.requiresAttention || session.id == actionableSessionID,
-                            useDrawingGroup: model.notchStatus == .opened,
-                            isInteractive: model.notchStatus == .opened,
-                            sideInset: sessionListSideInset,
-                            lang: model.lang,
-                            onApprove: { model.approvePermission(for: session.id, action: $0) },
-                            onAnswer: { model.answerQuestion(for: session.id, answer: $0) },
-                            onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
-                                ? { model.replyToSession(session, text: $0) } : nil,
-                            onJump: { model.jumpToSession(session) },
-                            onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
-                        )
-                    }
+                ForEach(section.sessions) { session in
+                    IslandSessionRow(
+                        session: session,
+                        referenceDate: referenceDate,
+                        stateIndicator: model.islandSessionStateIndicator,
+                        completedStaleThreshold: model.completedStaleThreshold.seconds,
+                        isActionable: session.phase.requiresAttention || session.id == actionableSessionID,
+                        useDrawingGroup: model.notchStatus == .opened,
+                        isInteractive: model.notchStatus == .opened,
+                        sideInset: sessionListSideInset,
+                        lang: model.lang,
+                        onApprove: { model.approvePermission(for: session.id, action: $0) },
+                        onAnswer: { model.answerQuestion(for: session.id, answer: $0) },
+                        onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
+                            ? { model.replyToSession(session, text: $0) } : nil,
+                        onJump: { model.jumpToSession(session) },
+                        onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
+                    )
                 }
             }
         }
@@ -807,32 +795,20 @@ struct IslandPanelView: View {
         return "\(item.count) \(compact ? item.compactTitle : item.title)"
     }
 
-    private func sessionSectionHeader(
-        _ section: IslandSessionSection,
-        isExpanded: Bool
-    ) -> some View {
-        Button {
-            toggleSessionSection(section, isExpanded: isExpanded)
-        } label: {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(sectionTint(for: section))
-                    .frame(width: 7, height: 7)
-                Text(sessionSectionTitle(for: section).uppercased())
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                    .tracking(0.4)
-                    .foregroundStyle(sectionLabelColor(for: section))
-                Text("\(section.sessions.count)")
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(V6Palette.paper.opacity(0.4))
-                Spacer(minLength: 0)
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(V6Palette.paper.opacity(0.35))
-            }
-            .contentShape(Rectangle())
+    private func sessionSectionHeader(_ section: IslandSessionSection) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(sectionTint(for: section))
+                .frame(width: 7, height: 7)
+            Text(sessionSectionTitle(for: section).uppercased())
+                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                .tracking(0.4)
+                .foregroundStyle(sectionLabelColor(for: section))
+            Text("\(section.sessions.count)")
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(V6Palette.paper.opacity(0.4))
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
         .padding(.leading, sessionListSideInset)
         .padding(.trailing, sessionListSideInset)
         .padding(.top, 10)
@@ -842,33 +818,6 @@ struct IslandPanelView: View {
             Rectangle()
                 .fill(.white.opacity(0.055))
                 .frame(height: 1)
-        }
-    }
-
-    private func isSessionSectionExpanded(_ section: IslandSessionSection) -> Bool {
-        if collapsedSessionSectionIDs.contains(section.id) {
-            return false
-        }
-        if expandedSessionSectionIDs.contains(section.id) {
-            return true
-        }
-
-        // Actionable requests must remain immediately visible. Ordinary state
-        // groups start collapsed; other grouping modes preserve their existing
-        // expanded presentation.
-        return section.sessions.contains(where: { $0.phase.requiresAttention })
-            || model.islandSessionGroup != .state
-    }
-
-    private func toggleSessionSection(_ section: IslandSessionSection, isExpanded: Bool) {
-        withAnimation(.smooth(duration: 0.2)) {
-            if isExpanded {
-                expandedSessionSectionIDs.remove(section.id)
-                collapsedSessionSectionIDs.insert(section.id)
-            } else {
-                collapsedSessionSectionIDs.remove(section.id)
-                expandedSessionSectionIDs.insert(section.id)
-            }
         }
     }
 
@@ -1290,7 +1239,8 @@ private struct IslandSessionRow: View {
             threshold: completedStaleThreshold
         )
         let defaultShowsDetail = !isStaleCompleted
-            && session.defaultsToExpandedIslandDetails(isActionable: isActionable)
+            && presentation == .notification
+            && session.defaultsToExpandedNotificationDetails(isActionable: isActionable)
         let showsDetail = detailOverride ?? defaultShowsDetail
         let presence = isStaleCompleted
             ? .inactive

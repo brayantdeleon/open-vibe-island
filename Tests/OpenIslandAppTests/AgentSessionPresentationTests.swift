@@ -47,7 +47,7 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
-    func completedAndRequiredActionRowsStartExpanded() {
+    func completedAndRequiredActionNotificationsStartExpanded() {
         let running = AgentSession(
             id: "running",
             title: "Running task",
@@ -73,11 +73,11 @@ struct AgentSessionPresentationTests {
             updatedAt: .now
         )
 
-        #expect(!running.defaultsToExpandedIslandDetails(isActionable: false))
-        #expect(!running.defaultsToExpandedIslandDetails(isActionable: true))
-        #expect(completed.defaultsToExpandedIslandDetails(isActionable: true))
-        #expect(!approval.defaultsToExpandedIslandDetails(isActionable: false))
-        #expect(approval.defaultsToExpandedIslandDetails(isActionable: true))
+        #expect(!running.defaultsToExpandedNotificationDetails(isActionable: false))
+        #expect(!running.defaultsToExpandedNotificationDetails(isActionable: true))
+        #expect(completed.defaultsToExpandedNotificationDetails(isActionable: true))
+        #expect(!approval.defaultsToExpandedNotificationDetails(isActionable: false))
+        #expect(approval.defaultsToExpandedNotificationDetails(isActionable: true))
     }
 
     @Test
