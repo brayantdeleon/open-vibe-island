@@ -26,6 +26,138 @@ enum IslandRightSlotContent: Equatable {
     case agents([AgentGridCell]) // balanced grid, one tile per session
 }
 
+/// One mascot per actively running provider in the closed island's leading
+/// slot. This is intentionally provider-level rather than session-level so
+/// parallel tasks do not multiply the number of pets.
+enum IslandLeadingPet: String, Equatable, Hashable {
+    case codex
+    case claude
+}
+
+// MARK: - Leading activity renderer
+
+/// Replaces the waveform while Codex or Claude is actively running. The
+/// mascots are drawn in SwiftUI so the OSS app does not redistribute artwork
+/// from either vendor's application bundle.
+struct V6LeadingActivityView: View {
+    let mode: UnifiedBars.Mode
+    let pets: [IslandLeadingPet]
+
+    static func intrinsicWidth(for pets: [IslandLeadingPet]) -> CGFloat {
+        pets.count > 1 ? 28 : 24
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if pets.isEmpty {
+            UnifiedBars(mode: mode, size: 24)
+                .frame(width: 24, height: 24)
+        } else {
+            TimelineView(.periodic(from: .now, by: 0.42)) { context in
+                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.42) % 2
+                HStack(spacing: pets.count > 1 ? -2 : 0) {
+                    ForEach(pets, id: \.self) { pet in
+                        MiniSessionPet(pet: pet, frame: frame)
+                            .frame(width: pets.count > 1 ? 15 : 20, height: 20)
+                    }
+                }
+            }
+            .frame(width: Self.intrinsicWidth(for: pets), height: 24)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        switch pets {
+        case [.codex]:
+            return "Codex session running"
+        case [.claude]:
+            return "Claude session running"
+        default:
+            return "Codex and Claude sessions running"
+        }
+    }
+}
+
+private struct MiniSessionPet: View {
+    let pet: IslandLeadingPet
+    let frame: Int
+
+    var body: some View {
+        Canvas(rendersAsynchronously: false) { context, size in
+            switch pet {
+            case .codex:
+                drawCodexPet(in: context, size: size)
+            case .claude:
+                drawClaudeCrab(in: context, size: size)
+            }
+        }
+    }
+
+    private func drawCodexPet(in context: GraphicsContext, size: CGSize) {
+        let scale = min(size.width / 20, size.height / 20)
+        let x = (size.width - 20 * scale) / 2
+        let bounce = CGFloat(frame == 0 ? 1 : 0) * scale
+        let mint = Color(red: 0.34, green: 0.91, blue: 0.67)
+        let paper = V6Palette.paper
+        let ink = V6Palette.ink
+
+        func rect(_ px: CGFloat, _ py: CGFloat, _ width: CGFloat, _ height: CGFloat, radius: CGFloat = 0) -> Path {
+            Path(roundedRect: CGRect(
+                x: x + px * scale,
+                y: py * scale - bounce,
+                width: width * scale,
+                height: height * scale
+            ), cornerRadius: radius * scale)
+        }
+
+        // A tiny original Codex companion: antenna, ears, body, and terminal
+        // cursor chest mark. Its two-frame hop reads clearly at notch scale.
+        context.fill(rect(9, 1, 2, 3, radius: 1), with: .color(mint))
+        context.fill(rect(4, 4, 12, 11, radius: 4), with: .color(paper))
+        context.fill(rect(2.5, 5, 4, 5, radius: 2), with: .color(mint))
+        context.fill(rect(13.5, 5, 4, 5, radius: 2), with: .color(mint))
+        context.fill(rect(6, 8, 2, 2, radius: 1), with: .color(ink))
+        context.fill(rect(12, 8, 2, 2, radius: 1), with: .color(ink))
+        context.fill(rect(8, 12, 4, 1.5, radius: 0.75), with: .color(mint))
+        context.fill(rect(frame == 0 ? 4 : 5, 15, 4, 2, radius: 1), with: .color(paper))
+        context.fill(rect(frame == 0 ? 12 : 11, 15, 4, 2, radius: 1), with: .color(paper))
+    }
+
+    private func drawClaudeCrab(in context: GraphicsContext, size: CGSize) {
+        let scale = min(size.width / 20, size.height / 20)
+        let x = (size.width - 20 * scale) / 2
+        let bounce = CGFloat(frame == 0 ? 0 : 1) * scale
+        let orange = Color(red: 0.85, green: 0.39, blue: 0.22)
+        let highlight = Color(red: 0.98, green: 0.57, blue: 0.35)
+        let ink = V6Palette.ink
+
+        func rect(_ px: CGFloat, _ py: CGFloat, _ width: CGFloat, _ height: CGFloat, radius: CGFloat = 0) -> Path {
+            Path(roundedRect: CGRect(
+                x: x + px * scale,
+                y: py * scale - bounce,
+                width: width * scale,
+                height: height * scale
+            ), cornerRadius: radius * scale)
+        }
+
+        // Original pixel-crab silhouette with alternating raised claws.
+        let leftClawY: CGFloat = frame == 0 ? 5 : 3
+        let rightClawY: CGFloat = frame == 0 ? 3 : 5
+        context.fill(rect(1, leftClawY, 5, 4, radius: 2), with: .color(highlight))
+        context.fill(rect(14, rightClawY, 5, 4, radius: 2), with: .color(highlight))
+        context.fill(rect(4, 7, 12, 8, radius: 3), with: .color(orange))
+        context.fill(rect(6, 5, 2, 4, radius: 1), with: .color(highlight))
+        context.fill(rect(12, 5, 2, 4, radius: 1), with: .color(highlight))
+        context.fill(rect(6.5, 5.5, 1, 1.5, radius: 0.5), with: .color(ink))
+        context.fill(rect(12.5, 5.5, 1, 1.5, radius: 0.5), with: .color(ink))
+        context.fill(rect(3, 14, 4, 2, radius: 1), with: .color(highlight))
+        context.fill(rect(8, 15, 4, 2, radius: 1), with: .color(highlight))
+        context.fill(rect(13, 14, 4, 2, radius: 1), with: .color(highlight))
+    }
+}
+
 // MARK: - Right-slot renderers
 
 struct V6RightSlotView: View {
@@ -213,6 +345,7 @@ struct V6ClosedPill: View {
     var label: String?          // suppressed automatically in MacBook layout
     var rightSlot: IslandRightSlotContent?
     var layout: V6ClosedLayout
+    var activePets: [IslandLeadingPet] = []
     var height: CGFloat = 32
 
     /// MacBook mode only — width of the physical notch cutout to wrap.
@@ -241,7 +374,7 @@ struct V6ClosedPill: View {
     // MARK: External (fluid)
 
     private var externalBody: some View {
-        let glyphW: CGFloat = 24
+        let glyphW = V6LeadingActivityView.intrinsicWidth(for: activePets)
         let labelW = label.map { V6CenterLabelView.intrinsicWidth(of: $0) } ?? 0
         let rightW = rightSlot.map { V6RightSlotView.intrinsicWidth(of: $0) } ?? 0
 
@@ -255,7 +388,7 @@ struct V6ClosedPill: View {
                 .fill(V6Palette.ink)
 
             HStack(spacing: 0) {
-                UnifiedBars(mode: mode, size: 24)
+                V6LeadingActivityView(mode: mode, pets: activePets)
                     .frame(width: glyphW, height: 24)
 
                 if let label {
@@ -280,6 +413,7 @@ struct V6ClosedPill: View {
                 AnyHashable(label ?? ""),
                 AnyHashable(rightSlot.map(RightSlotKey.init) ?? .none),
                 AnyHashable(mode),
+                AnyHashable(activePets),
             ])
         )
     }
@@ -295,8 +429,8 @@ struct V6ClosedPill: View {
                 .fill(V6Palette.ink)
 
             HStack(spacing: 0) {
-                UnifiedBars(mode: mode, size: 24)
-                    .frame(width: 24, height: 24)
+                V6LeadingActivityView(mode: mode, pets: activePets)
+                    .frame(width: V6LeadingActivityView.intrinsicWidth(for: activePets), height: 24)
 
                 Spacer(minLength: 0)
 
@@ -345,6 +479,7 @@ struct IslandPreviewPill: View {
             label: label,
             rightSlot: rightSlot,
             layout: layout,
+            activePets: mode == .running ? [.codex, .claude] : [],
             physicalNotchWidth: physicalNotchWidth
         )
         .frame(maxWidth: .infinity, alignment: .center)

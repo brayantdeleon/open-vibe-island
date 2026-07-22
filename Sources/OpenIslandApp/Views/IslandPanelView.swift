@@ -278,6 +278,7 @@ struct IslandPanelView: View {
             label: layout == .external ? model.islandClosedLabel() : nil,
             rightSlot: model.islandClosedRightSlotContent(),
             layout: layout,
+            activePets: model.islandClosedActivePets,
             height: closedNotchHeight,
             physicalNotchWidth: layout == .macbook ? physicalNotchWidth : 0,
             minWidth: 70
