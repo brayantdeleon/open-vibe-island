@@ -226,10 +226,10 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
-    func liveHeadlineUsesLatestPromptForAttachedSession() {
+    func liveHeadlineUsesProjectAndCodexSessionName() {
         let session = AgentSession(
             id: "session-1",
-            title: "Codex · worktree",
+            title: "Improve island hover behavior",
             tool: .codex,
             origin: .live,
             attachmentState: .attached,
@@ -250,30 +250,35 @@ struct AgentSessionPresentationTests {
             )
         )
 
-        // Headline uses initial prompt (session topic), prompt line uses latest
-        #expect(session.spotlightHeadlineText == "worktree · Start by fixing the island hover behavior.")
+        #expect(session.spotlightHeadlineText == "worktree · Improve island hover behavior")
         #expect(session.spotlightPromptLineText == "You: Now make the overlay height fit the content.")
     }
 
     @Test
-    func detachedSessionHeadlineShowsInitialPrompt() {
+    func detachedSessionHeadlineUsesClaudeSessionName() {
         let session = AgentSession(
             id: "session-1",
-            title: "Codex · worktree",
-            tool: .codex,
+            title: "Island hover cleanup",
+            tool: .claudeCode,
             origin: .live,
             attachmentState: .detached,
             phase: .completed,
             summary: "Done",
             updatedAt: Date.now.addingTimeInterval(-30),
-            codexMetadata: CodexSessionMetadata(
+            jumpTarget: JumpTarget(
+                terminalApp: "Claude.app",
+                workspaceName: "worktree",
+                paneTitle: "Island hover cleanup",
+                workingDirectory: "/tmp/worktree"
+            ),
+            claudeMetadata: ClaudeSessionMetadata(
                 initialUserPrompt: "Start by fixing the island hover behavior.",
                 lastUserPrompt: "Now make the overlay height fit the content.",
                 lastAssistantMessage: "Updating the layout logic."
             )
         )
 
-        #expect(session.spotlightHeadlineText == "worktree · Start by fixing the island hover behavior.")
+        #expect(session.spotlightHeadlineText == "worktree · Island hover cleanup")
         #expect(session.spotlightPromptLineText == "You: Now make the overlay height fit the content.")
     }
 
@@ -282,7 +287,7 @@ struct AgentSessionPresentationTests {
         let now = Date.now
         let session = AgentSession(
             id: "session-1",
-            title: "Codex · worktree",
+            title: "README release notes",
             tool: .codex,
             origin: .live,
             attachmentState: .attached,
@@ -303,9 +308,31 @@ struct AgentSessionPresentationTests {
             )
         )
 
-        #expect(session.spotlightHeadlineText == "worktree · Commit the README change.")
+        #expect(session.spotlightHeadlineText == "worktree · README release notes")
         #expect(session.spotlightPromptLineText == "You: Also confirm the worktree status.")
         #expect(session.notificationHeaderPromptLineText == nil)
+    }
+
+    @Test
+    func genericProviderTitleDoesNotDuplicateProjectOrFallBackToPrompt() {
+        let session = AgentSession(
+            id: "session-1",
+            title: "Codex · worktree",
+            tool: .codex,
+            phase: .running,
+            summary: "Working",
+            updatedAt: .now,
+            jumpTarget: JumpTarget(
+                terminalApp: "Codex.app",
+                workspaceName: "worktree",
+                paneTitle: "Codex · worktree"
+            ),
+            codexMetadata: CodexSessionMetadata(
+                initialUserPrompt: "This prompt should not become the title."
+            )
+        )
+
+        #expect(session.spotlightHeadlineText == "worktree")
     }
 
     @Test

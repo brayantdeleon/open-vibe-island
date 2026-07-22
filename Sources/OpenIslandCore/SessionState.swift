@@ -85,6 +85,20 @@ public struct SessionState: Equatable, Sendable {
             session.processNotSeenCount = 0
             upsert(session)
 
+        case let .sessionTitleUpdated(payload):
+            guard var session = sessionsByID[payload.sessionID] else {
+                return
+            }
+
+            let title = payload.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else {
+                return
+            }
+
+            session.title = title
+            session.jumpTarget?.paneTitle = title
+            upsert(session)
+
         case let .activityUpdated(payload):
             guard var session = sessionsByID[payload.sessionID] else {
                 return

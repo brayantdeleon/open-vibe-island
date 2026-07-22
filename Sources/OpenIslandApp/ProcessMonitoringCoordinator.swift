@@ -345,6 +345,8 @@ final class ProcessMonitoringCoordinator {
         switch event {
         case let .sessionStarted(payload):
             payload.sessionID
+        case let .sessionTitleUpdated(payload):
+            payload.sessionID
         case let .activityUpdated(payload):
             payload.sessionID
         case let .permissionRequested(payload):

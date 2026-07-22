@@ -206,17 +206,33 @@ extension AgentSession {
             headline += " (\(branch))"
         }
 
-        guard let prompt = spotlightHeadlinePromptText else {
+        guard let sessionName = spotlightHeadlineSessionName else {
             return headline
         }
 
-        return "\(headline) · \(prompt)"
+        return "\(headline) · \(sessionName)"
     }
 
-    var spotlightHeadlinePromptText: String? {
-        // Headline shows the initial prompt (session topic), not the latest.
-        // The latest prompt is shown separately in the "You:" line.
-        initialPromptText ?? latestPromptText
+    var spotlightHeadlineSessionName: String? {
+        switch tool {
+        case .codex, .claudeCode:
+            let sessionName = title.trimmedForSurface
+            guard !sessionName.isEmpty,
+                  sessionName.caseInsensitiveCompare(spotlightWorkspaceName) != .orderedSame else {
+                return nil
+            }
+
+            let genericTitle = "\(tool == .codex ? "Codex" : "Claude") · \(spotlightWorkspaceName)"
+            guard sessionName.caseInsensitiveCompare(genericTitle) != .orderedSame else {
+                return nil
+            }
+
+            return sessionName
+        default:
+            // Preserve the established prompt-based headline for providers
+            // that do not expose a first-class session name.
+            return initialPromptText ?? latestPromptText
+        }
     }
 
     var spotlightPromptText: String? {

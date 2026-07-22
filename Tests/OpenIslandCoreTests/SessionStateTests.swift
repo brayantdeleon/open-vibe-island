@@ -5,6 +5,42 @@ import Testing
 
 /// Regression coverage for core session lifecycle and visibility behavior.
 struct SessionStateTests {
+    @Test
+    func sessionTitleUpdatePreservesActivityAndUpdatesJumpLabel() {
+        let updatedAt = Date(timeIntervalSince1970: 900)
+        let session = AgentSession(
+            id: "codex-thread",
+            title: "Codex · demo",
+            tool: .codex,
+            phase: .waitingForApproval,
+            summary: "Waiting for approval",
+            updatedAt: updatedAt,
+            permissionRequest: PermissionRequest(
+                title: "Run tests",
+                summary: "Waiting for approval",
+                affectedPath: "/tmp/demo"
+            ),
+            jumpTarget: JumpTarget(
+                terminalApp: "Codex.app",
+                workspaceName: "demo",
+                paneTitle: "Codex · demo"
+            )
+        )
+        var state = SessionState(sessions: [session])
+
+        state.apply(.sessionTitleUpdated(SessionTitleUpdated(
+            sessionID: "codex-thread",
+            title: "Approval experience polish"
+        )))
+
+        let renamed = state.session(id: "codex-thread")
+        #expect(renamed?.title == "Approval experience polish")
+        #expect(renamed?.jumpTarget?.paneTitle == "Approval experience polish")
+        #expect(renamed?.phase == .waitingForApproval)
+        #expect(renamed?.permissionRequest != nil)
+        #expect(renamed?.updatedAt == updatedAt)
+    }
+
     /// Completed Codex CLI sessions outside Codex.app should age out even while Codex.app is running.
     @Test
     func completedCodexCLISessionEndsEvenWhenCodexAppIsRunning() {
