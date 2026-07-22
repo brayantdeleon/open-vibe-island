@@ -179,6 +179,7 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
     public var id: UUID
     public var title: String
     public var summary: String
+    public var detail: String?
     public var affectedPath: String
     public var primaryActionTitle: String
     public var secondaryActionTitle: String
@@ -191,6 +192,7 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
         id: UUID = UUID(),
         title: String,
         summary: String,
+        detail: String? = nil,
         affectedPath: String,
         primaryActionTitle: String = "Allow",
         secondaryActionTitle: String = "Deny",
@@ -202,6 +204,7 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
         self.id = id
         self.title = title
         self.summary = summary
+        self.detail = detail
         self.affectedPath = affectedPath
         self.primaryActionTitle = primaryActionTitle
         self.secondaryActionTitle = secondaryActionTitle

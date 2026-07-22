@@ -101,7 +101,10 @@ final class CodexAppServerCoordinator {
                 // Skip threads already tracked — re-emitting sessionStarted
                 // rebuilds the AgentSession and would wipe richer state
                 // already accumulated from hooks or rediscovery.
-                if isSessionTracked?(thread.id) == true { continue }
+                if isSessionTracked?(thread.id) == true {
+                    emitSessionTitleUpdated(threadId: thread.id, name: thread.name)
+                    continue
+                }
                 emitSessionStarted(from: thread)
                 created += 1
             }
@@ -119,7 +122,10 @@ final class CodexAppServerCoordinator {
         switch notification {
         case .threadStarted(let thread):
             guard !thread.ephemeral else { return }
-            guard isSessionTracked?(thread.id) != true else { return }
+            guard isSessionTracked?(thread.id) != true else {
+                emitSessionTitleUpdated(threadId: thread.id, name: thread.name)
+                return
+            }
             emitSessionStarted(from: thread)
 
         case .threadStatusChanged(let threadId, let status):
@@ -195,12 +201,8 @@ final class CodexAppServerCoordinator {
                 )
             ))
 
-        case .threadNameUpdated:
-            // Title updates don't have a dedicated AgentEvent and we can't
-            // safely overwrite phase/summary here (would clobber running or
-            // waiting-for-approval state).  Skip for now — the title is
-            // populated at sessionStarted time which is usually enough.
-            break
+        case .threadNameUpdated(let threadId, let name):
+            emitSessionTitleUpdated(threadId: threadId, name: name)
 
         case .turnStarted(let threadId, _):
             onEvent?(.activityUpdated(
@@ -274,5 +276,14 @@ final class CodexAppServerCoordinator {
                 )
             )
         ))
+    }
+
+    private func emitSessionTitleUpdated(threadId: String, name: String?) {
+        guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else {
+            return
+        }
+
+        onEvent?(.sessionTitleUpdated(SessionTitleUpdated(sessionID: threadId, title: name)))
     }
 }

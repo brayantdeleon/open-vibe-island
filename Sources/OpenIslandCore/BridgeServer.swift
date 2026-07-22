@@ -529,6 +529,7 @@ public final class BridgeServer: @unchecked Sendable {
                     request: PermissionRequest(
                         title: "Run Bash command",
                         summary: "Codex wants to run a shell command.",
+                        detail: payload.commandText ?? command,
                         affectedPath: payload.commandText ?? command,
                         primaryActionTitle: "Allow",
                         secondaryActionTitle: "Deny"
@@ -556,6 +557,7 @@ public final class BridgeServer: @unchecked Sendable {
                         request: PermissionRequest(
                             title: payload.permissionRequestTitle,
                             summary: payload.permissionRequestSummary,
+                            detail: payload.permissionRequestDetail,
                             affectedPath: payload.permissionRequestAffectedPath,
                             primaryActionTitle: "Allow",
                             secondaryActionTitle: "Deny",
@@ -742,6 +744,7 @@ public final class BridgeServer: @unchecked Sendable {
                             request: PermissionRequest(
                                 title: payload.permissionRequestTitle,
                                 summary: payload.permissionRequestSummary,
+                                detail: payload.permissionRequestDetail,
                                 affectedPath: payload.permissionAffectedPath,
                                 primaryActionTitle: "Allow Once",
                                 secondaryActionTitle: "Deny",
