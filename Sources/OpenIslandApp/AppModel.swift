@@ -356,6 +356,11 @@ final class AppModel {
         set { updateAppearancePreferences(for: activeAppearanceProfile) { $0.rightSlot = newValue } }
     }
 
+    var islandClosedPresentation: IslandClosedPresentation {
+        get { appearancePreferences(for: activeAppearanceProfile).closedPresentation }
+        set { updateAppearancePreferences(for: activeAppearanceProfile) { $0.closedPresentation = newValue } }
+    }
+
     var islandCenterLabel: IslandCenterLabel {
         get { appearancePreferences(for: activeAppearanceProfile).centerLabel }
         set { updateAppearancePreferences(for: activeAppearanceProfile) { $0.centerLabel = newValue } }
@@ -428,6 +433,7 @@ final class AppModel {
         for profile: IslandAppearanceDisplayProfile
     ) {
         let defaults = UserDefaults.standard
+        defaults.set(preferences.closedPresentation.rawValue, forKey: Self.appearanceDefaultsKey(profile, "closedPresentation"))
         defaults.set(preferences.rightSlot.rawValue, forKey: Self.appearanceDefaultsKey(profile, "rightSlot"))
         defaults.set(preferences.centerLabel.rawValue, forKey: Self.appearanceDefaultsKey(profile, "centerLabel"))
         defaults.set(preferences.usageDisplay.rawValue, forKey: Self.appearanceDefaultsKey(profile, "usageDisplay"))
@@ -552,6 +558,9 @@ final class AppModel {
     private static func loadAppearancePreferences(for profile: IslandAppearanceDisplayProfile) -> IslandAppearancePreferences {
         let defaults = UserDefaults.standard
         return IslandAppearancePreferences(
+            closedPresentation: IslandClosedPresentation(
+                rawValue: defaults.string(forKey: appearanceDefaultsKey(profile, "closedPresentation")) ?? ""
+            ) ?? (profile == .notch ? .ghost : .alwaysVisible),
             rightSlot: IslandRightSlot(
                 rawValue: defaults.string(forKey: appearanceDefaultsKey(profile, "rightSlot"))
                     ?? defaults.string(forKey: islandRightSlotDefaultsKey)
@@ -855,6 +864,12 @@ final class AppModel {
         if sessions.contains(where: { $0.phase.requiresAttention }) { return .waiting }
         if sessions.contains(where: { $0.phase == .running })       { return .running }
         return .idle
+    }
+
+    var hasClosedIslandActivity: Bool {
+        surfacedSessions.contains { session in
+            session.phase == .running || session.phase.requiresAttention
+        }
     }
 
     /// At most one mascot per provider, regardless of how many tasks that

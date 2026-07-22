@@ -303,12 +303,7 @@ final class OverlayPanelController {
     private func handleMouseDown(_ screenLocation: NSPoint) {
         guard let model else { return }
 
-        let inClosedSurfaceArea = isPointInClosedSurfaceArea(screenLocation)
-
-        if model.notchStatus == .closed && inClosedSurfaceArea {
-            cancelHoverOpen()
-            model.notchOpen(reason: .click)
-        } else if model.notchStatus == .opened {
+        if model.notchStatus == .opened {
             if !isPointInExpandedArea(screenLocation) {
                 model.notchClose()
                 repostMouseDown(at: screenLocation)
@@ -346,6 +341,19 @@ final class OverlayPanelController {
 
     func isPointInClosedSurfaceArea(_ screenPoint: NSPoint) -> Bool {
         guard let model else { return false }
+
+        let presentation = model.islandClosedPresentation
+        guard presentation.allowsHoverOpen else { return false }
+
+        let surfaceIsVisible = presentation.showsClosedSurface(
+            hasActivity: model.hasClosedIslandActivity,
+            menuBarVisible: NSMenu.menuBarVisible()
+        )
+        let shouldUsePhysicalNotch = presentation.usesPhysicalNotchHoverTarget || !surfaceIsVisible
+
+        if shouldUsePhysicalNotch, !notchRect.isEmpty {
+            return Self.rectContainsIncludingEdges(notchRect, point: screenPoint)
+        }
 
         if let closedSurfaceRect = closedSurfaceRect(for: model) {
             return Self.rectContainsIncludingEdges(closedSurfaceRect, point: screenPoint)

@@ -3,6 +3,19 @@ import Testing
 @testable import OpenIslandApp
 
 struct OverlayPanelControllerTests {
+    @Test
+    func closedPresentationVisibilityModesRemainDistinct() {
+        #expect(!IslandClosedPresentation.ghost.showsClosedSurface(hasActivity: true, menuBarVisible: true))
+        #expect(!IslandClosedPresentation.activityOnly.showsClosedSurface(hasActivity: false, menuBarVisible: true))
+        #expect(IslandClosedPresentation.activityOnly.showsClosedSurface(hasActivity: true, menuBarVisible: false))
+        #expect(!IslandClosedPresentation.menuBarOnly.showsClosedSurface(hasActivity: true, menuBarVisible: false))
+        #expect(IslandClosedPresentation.menuBarOnly.showsClosedSurface(hasActivity: false, menuBarVisible: true))
+        #expect(IslandClosedPresentation.minimal.showsClosedSurface(hasActivity: false, menuBarVisible: false))
+        #expect(IslandClosedPresentation.alwaysVisible.showsClosedSurface(hasActivity: false, menuBarVisible: false))
+        #expect(!IslandClosedPresentation.hidden.showsClosedSurface(hasActivity: true, menuBarVisible: true))
+        #expect(!IslandClosedPresentation.hidden.allowsHoverOpen)
+    }
+
     @Test @MainActor
     func closedIslandHoverRequiresTwoSecondDwell() {
         #expect(AppModel.hoverOpenDelay == 2.0)
