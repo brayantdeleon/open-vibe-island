@@ -338,6 +338,14 @@ extension AgentSession {
         spotlightShowsDetailLines(at: .now)
     }
 
+    func defaultsToExpandedNotificationDetails(isActionable: Bool) -> Bool {
+        phase == .completed || (isActionable && phase.requiresAttention)
+    }
+
+    var supportsPersistentPermissionApproval: Bool {
+        tool == .claudeCode && permissionRequest?.toolName?.isEmpty == false
+    }
+
     func spotlightShowsDetailLines(at referenceDate: Date) -> Bool {
         if phase == .running || phase.requiresAttention {
             return true

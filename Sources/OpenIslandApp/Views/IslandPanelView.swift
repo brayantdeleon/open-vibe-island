@@ -1238,7 +1238,9 @@ private struct IslandSessionRow: View {
             at: referenceDate,
             threshold: completedStaleThreshold
         )
-        let defaultShowsDetail = !isStaleCompleted && (rawPresence != .inactive || isActionable)
+        let defaultShowsDetail = !isStaleCompleted
+            && presentation == .notification
+            && session.defaultsToExpandedNotificationDetails(isActionable: isActionable)
         let showsDetail = detailOverride ?? defaultShowsDetail
         let presence = isStaleCompleted
             ? .inactive
@@ -1671,7 +1673,7 @@ private struct IslandSessionRow: View {
                 .foregroundStyle(V6Palette.paper.opacity(0.86))
 
             AutoHeightScrollView(maxHeight: 220) {
-                Text(permissionMessageText)
+                Text(verbatim: permissionMessageText)
                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(V6Palette.paper.opacity(0.78))
                     .textSelection(.enabled)
@@ -1691,7 +1693,8 @@ private struct IslandSessionRow: View {
                     .buttonStyle(IslandActionButtonStyle(kind: .secondary, expands: true))
                 Button(session.permissionRequest?.primaryActionTitle ?? lang.t("approval.allowOnce")) { onApprove?(.allowOnce) }
                     .buttonStyle(IslandActionButtonStyle(kind: .success, expands: true))
-                if let toolName = session.permissionRequest?.toolName {
+                if session.supportsPersistentPermissionApproval,
+                   let toolName = session.permissionRequest?.toolName {
                     Button(lang.t("approval.alwaysAllow", toolName)) {
                         let rule = ClaudePermissionRuleValue(toolName: toolName)
                         let update = ClaudePermissionUpdate.addRules(

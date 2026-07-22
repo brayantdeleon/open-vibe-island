@@ -695,6 +695,87 @@ struct SessionStateTests {
     }
 
     @Test
+    func codexDesktopPermissionRequestWithoutTranscriptRemainsActionable() async throws {
+        let socketURL = BridgeSocketLocation.uniqueTestURL()
+        let server = BridgeServer(socketURL: socketURL)
+        try server.start()
+        defer { server.stop() }
+
+        let observer = LocalBridgeClient(socketURL: socketURL)
+        let stream = try observer.connect()
+        defer { observer.disconnect() }
+        try await observer.send(.registerClient(role: .observer))
+
+        let payload = CodexHookPayload(
+            cwd: "/tmp/desktop-worktree",
+            hookEventName: .permissionRequest,
+            model: "gpt-5-codex",
+            permissionMode: .default,
+            sessionID: "codex-desktop-permission",
+            terminalApp: "Codex.app",
+            transcriptPath: nil,
+            turnID: "turn-desktop-1",
+            toolName: "Bash",
+            toolUseID: "tool-desktop-1",
+            toolInput: CodexHookToolInput(
+                command: "whois example.com",
+                description: "Run a network command outside the sandbox"
+            )
+        )
+
+        async let responseTask = sendOnGCDThread(.processCodexHook(payload), socketURL: socketURL)
+
+        var iterator = stream.makeAsyncIterator()
+        let startedEvent = try await nextEvent(from: &iterator)
+        let permissionEvent = try await nextEvent(from: &iterator)
+
+        #expect(startedEvent.isSessionStarted)
+        guard case let .permissionRequested(permission) = permissionEvent else {
+            Issue.record("Expected a Codex Desktop permission request")
+            return
+        }
+        #expect(permission.request.affectedPath == "whois example.com")
+
+        try await observer.send(
+            .resolvePermission(sessionID: payload.sessionID, resolution: .allowOnce())
+        )
+
+        let activityEvent = try await nextEvent(from: &iterator)
+        let response = try await responseTask
+
+        #expect(activityEvent.activityUpdate?.summary == "Permission approved. Codex continued the tool.")
+        #expect(response == .codexHookDirective(.permissionRequest(.allow)))
+    }
+
+    @Test
+    func codexDesktopExecApprovalUsesReadableCurrentFieldNames() throws {
+        let input = try JSONDecoder().decode(
+            CodexHookToolInput.self,
+            from: Data(#"{"cmd":"open -na '/Applications/Test.app'","justification":"Allow opening the test app?","sandbox_permissions":"require_escalated"}"#.utf8)
+        )
+        let payload = CodexHookPayload(
+            cwd: "/tmp/worktree",
+            hookEventName: .permissionRequest,
+            model: "gpt-5-codex",
+            permissionMode: .default,
+            sessionID: "desktop-current-fields",
+            terminalApp: "Codex.app",
+            transcriptPath: nil,
+            toolName: "exec_command",
+            toolInput: input
+        )
+
+        #expect(input.command == "open -na '/Applications/Test.app'")
+        #expect(input.description == "Allow opening the test app?")
+        #expect(payload.permissionRequestTitle == "Run Bash command")
+        #expect(payload.permissionRequestSummary == "Allow opening the test app?")
+        #expect(
+            payload.permissionRequestDetail
+                == "Allow opening the test app?\n\nCommand:\nopen -na '/Applications/Test.app'"
+        )
+    }
+
+    @Test
     func codexPermissionRequestReturnsDenyDirectiveAfterRejection() async throws {
         let socketURL = BridgeSocketLocation.uniqueTestURL()
         let server = BridgeServer(socketURL: socketURL)

@@ -47,6 +47,71 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
+    func completedAndRequiredActionNotificationsStartExpanded() {
+        let running = AgentSession(
+            id: "running",
+            title: "Running task",
+            tool: .codex,
+            phase: .running,
+            summary: "Thinking",
+            updatedAt: .now
+        )
+        let completed = AgentSession(
+            id: "completed",
+            title: "Completed task",
+            tool: .codex,
+            phase: .completed,
+            summary: "Done",
+            updatedAt: .now
+        )
+        let approval = AgentSession(
+            id: "approval",
+            title: "Approval task",
+            tool: .codex,
+            phase: .waitingForApproval,
+            summary: "Needs approval",
+            updatedAt: .now
+        )
+
+        #expect(!running.defaultsToExpandedNotificationDetails(isActionable: false))
+        #expect(!running.defaultsToExpandedNotificationDetails(isActionable: true))
+        #expect(completed.defaultsToExpandedNotificationDetails(isActionable: true))
+        #expect(!approval.defaultsToExpandedNotificationDetails(isActionable: false))
+        #expect(approval.defaultsToExpandedNotificationDetails(isActionable: true))
+    }
+
+    @Test
+    func persistentPermissionApprovalIsOnlyOfferedForClaudeRules() {
+        let request = PermissionRequest(
+            title: "Run tool",
+            summary: "Run tool",
+            affectedPath: "tool",
+            toolName: "Bash"
+        )
+        let codex = AgentSession(
+            id: "codex-approval",
+            title: "Codex approval",
+            tool: .codex,
+            phase: .waitingForApproval,
+            summary: "Approval needed",
+            updatedAt: .now,
+            permissionRequest: request
+        )
+        let claude = AgentSession(
+            id: "claude-approval",
+            title: "Claude approval",
+            tool: .claudeCode,
+            phase: .waitingForApproval,
+            summary: "Approval needed",
+            updatedAt: .now,
+            permissionRequest: request
+        )
+
+        #expect(!codex.supportsPersistentPermissionApproval)
+        #expect(claude.supportsPersistentPermissionApproval)
+    }
+
+    @Test
     func attachedCompletedSessionStaysActiveWhileRecent() {
         let referenceDate = Date(timeIntervalSince1970: 10_000)
         let session = AgentSession(
