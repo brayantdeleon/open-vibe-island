@@ -1672,7 +1672,7 @@ private struct IslandSessionRow: View {
                 .foregroundStyle(V6Palette.paper.opacity(0.86))
 
             AutoHeightScrollView(maxHeight: 220) {
-                Text(permissionMessageText)
+                Text(verbatim: permissionMessageText)
                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(V6Palette.paper.opacity(0.78))
                     .textSelection(.enabled)
