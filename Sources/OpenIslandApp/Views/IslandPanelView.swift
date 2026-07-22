@@ -867,41 +867,9 @@ struct IslandPanelView: View {
 
         var providers: [UsageProviderPresentation] = []
 
-        if let snapshot = model.claudeUsageSnapshot,
-           snapshot.isEmpty == false {
-            var windows: [UsageWindowPresentation] = []
-
-            if let fiveHour = snapshot.fiveHour {
-                windows.append(
-                    UsageWindowPresentation(
-                        id: "claude-5h",
-                        label: "5h",
-                        usedPercentage: fiveHour.usedPercentage,
-                        resetsAt: fiveHour.resetsAt
-                    )
-                )
-            }
-
-            if let sevenDay = snapshot.sevenDay {
-                windows.append(
-                    UsageWindowPresentation(
-                        id: "claude-7d",
-                        label: "7d",
-                        usedPercentage: sevenDay.usedPercentage,
-                        resetsAt: sevenDay.resetsAt
-                    )
-                )
-            }
-
-            if windows.isEmpty == false {
-                providers.append(
-                    UsageProviderPresentation(
-                        id: "claude",
-                        title: "Claude",
-                        windows: windows
-                    )
-                )
-            }
+        let claudeFiveHour = model.claudeUsageSnapshot?.fiveHour
+        if model.claudeUsageInstalled || claudeFiveHour != nil {
+            providers.append(.claudeFiveHour(claudeFiveHour))
         }
 
         if model.showCodexUsage,
@@ -1042,9 +1010,12 @@ struct IslandPanelView: View {
                 .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.42))
 
-            Text("\(provider.peakUsagePercentage)%")
+            Text(provider.peakUsageText)
                 .font(.system(size: 11.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(usageColor(for: provider.peakUsedPercentage))
+                .foregroundStyle(
+                    provider.peakUsedPercentage.map { usageColor(for: $0) }
+                        ?? .white.opacity(0.34)
+                )
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -1058,7 +1029,11 @@ struct IslandPanelView: View {
 
     private func usageHelpText(for provider: UsageProviderPresentation) -> String {
         provider.windows.map { window in
-            var parts = ["\(window.label) \(window.roundedUsedPercentage)%"]
+            guard let roundedUsedPercentage = window.roundedUsedPercentage else {
+                return "\(window.label) usage unavailable — run a Claude Code turn to refresh"
+            }
+
+            var parts = ["\(window.label) \(roundedUsedPercentage)% used"]
             if let resetsAt = window.resetsAt,
                let remaining = remainingDurationString(until: resetsAt) {
                 parts.append(remaining)
@@ -1112,27 +1087,30 @@ struct IslandPanelView: View {
     }
 }
 
-private struct UsageProviderPresentation: Identifiable {
+struct UsageProviderPresentation: Identifiable {
     let id: String
     let title: String
     let windows: [UsageWindowPresentation]
 
     var peakWindow: UsageWindowPresentation? {
-        windows.max { lhs, rhs in
-            lhs.usedPercentage < rhs.usedPercentage
-        }
+        windows
+            .filter { $0.usedPercentage != nil }
+            .max { lhs, rhs in
+                (lhs.usedPercentage ?? 0) < (rhs.usedPercentage ?? 0)
+            } ?? windows.first
     }
 
     var peakWindowLabel: String {
         peakWindow?.label ?? ""
     }
 
-    var peakUsedPercentage: Double {
-        peakWindow?.usedPercentage ?? 0
+    var peakUsedPercentage: Double? {
+        peakWindow?.usedPercentage
     }
 
-    var peakUsagePercentage: Int {
-        peakWindow?.roundedUsedPercentage ?? 0
+    var peakUsageText: String {
+        guard let percentage = peakWindow?.roundedUsedPercentage else { return "—" }
+        return "\(percentage)%"
     }
 
     var shortTitle: String {
@@ -1145,16 +1123,31 @@ private struct UsageProviderPresentation: Identifiable {
             String(title.prefix(2))
         }
     }
+
+    static func claudeFiveHour(_ window: ClaudeUsageWindow?) -> Self {
+        Self(
+            id: "claude",
+            title: "Claude",
+            windows: [
+                UsageWindowPresentation(
+                    id: "claude-5h",
+                    label: "5h",
+                    usedPercentage: window?.usedPercentage,
+                    resetsAt: window?.resetsAt
+                )
+            ]
+        )
+    }
 }
 
-private struct UsageWindowPresentation: Identifiable {
+struct UsageWindowPresentation: Identifiable {
     let id: String
     let label: String
-    let usedPercentage: Double
+    let usedPercentage: Double?
     let resetsAt: Date?
 
-    var roundedUsedPercentage: Int {
-        Int(usedPercentage.rounded())
+    var roundedUsedPercentage: Int? {
+        usedPercentage.map { Int($0.rounded()) }
     }
 }
 
@@ -1292,8 +1285,8 @@ private struct IslandSessionRow: View {
                 if session.isRemote {
                     sideBadge("SSH")
                 }
-                if let terminalBadge = session.spotlightTerminalBadge {
-                    sideBadge(terminalBadge)
+                if let runtimeSurfaceBadge = session.spotlightRuntimeSurfaceBadge {
+                    sideBadge(runtimeSurfaceBadge)
                 }
                 Text(session.spotlightAgeBadge)
                     .font(.system(size: 10.5, weight: .medium, design: .monospaced))
@@ -1546,6 +1539,10 @@ private struct IslandSessionRow: View {
 
     private func titleColor(for presence: IslandSessionPresence) -> Color {
         if stateIndicator == .tint && presence != .inactive {
+            if let colorHex = session.spotlightActiveTitleColorHex,
+               let providerColor = Color(hex: colorHex) {
+                return providerColor
+            }
             return statusTint(for: presence)
         }
 

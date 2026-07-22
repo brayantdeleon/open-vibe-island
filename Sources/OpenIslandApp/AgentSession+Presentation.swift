@@ -122,8 +122,28 @@ extension AgentSession {
         return "\(jumpTarget.terminalApp) · \(jumpTarget.workspaceName)"
     }
 
-    var spotlightTerminalBadge: String? {
-        jumpTarget?.terminalApp
+    var spotlightRuntimeSurfaceBadge: String? {
+        guard let terminalApp = jumpTarget?.terminalApp.trimmedForSurface,
+              !terminalApp.isEmpty else {
+            return nil
+        }
+
+        switch terminalApp {
+        case "Codex.app", "Claude.app":
+            return "app"
+        default:
+            return "terminal"
+        }
+    }
+
+    var spotlightActiveTitleColorHex: String? {
+        guard phase == .running else { return nil }
+        switch tool {
+        case .codex, .claudeCode:
+            return tool.brandColorHex
+        default:
+            return nil
+        }
     }
 
     var spotlightWorkspaceName: String {

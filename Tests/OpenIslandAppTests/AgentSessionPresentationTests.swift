@@ -375,4 +375,63 @@ struct AgentSessionPresentationTests {
         #expect(session.spotlightSecondaryText == "Running Search")
         #expect(session.displayCurrentToolName == "Search")
     }
+
+    @Test
+    func runtimeSurfaceBadgeDistinguishesAppsFromTerminals() {
+        let appSession = AgentSession(
+            id: "app-session",
+            title: "Claude Code · app",
+            tool: .claudeCode,
+            phase: .running,
+            summary: "Working",
+            updatedAt: .now,
+            jumpTarget: JumpTarget(
+                terminalApp: "Claude.app",
+                workspaceName: "app",
+                paneTitle: "Claude"
+            )
+        )
+        let terminalSession = AgentSession(
+            id: "terminal-session",
+            title: "Codex · terminal",
+            tool: .codex,
+            phase: .running,
+            summary: "Working",
+            updatedAt: .now,
+            jumpTarget: JumpTarget(
+                terminalApp: "Ghostty",
+                workspaceName: "terminal",
+                paneTitle: "codex"
+            )
+        )
+
+        #expect(appSession.spotlightRuntimeSurfaceBadge == "app")
+        #expect(terminalSession.spotlightRuntimeSurfaceBadge == "terminal")
+    }
+
+    @Test
+    func runningCodexAndClaudeSessionsUseProviderTitleColors() {
+        var codex = AgentSession(
+            id: "codex",
+            title: "Codex",
+            tool: .codex,
+            phase: .running,
+            summary: "Working",
+            updatedAt: .now
+        )
+        let claude = AgentSession(
+            id: "claude",
+            title: "Claude Code",
+            tool: .claudeCode,
+            phase: .running,
+            summary: "Working",
+            updatedAt: .now
+        )
+
+        #expect(codex.spotlightActiveTitleColorHex == AgentTool.codex.brandColorHex)
+        #expect(claude.spotlightActiveTitleColorHex == AgentTool.claudeCode.brandColorHex)
+
+        codex.phase = .completed
+        #expect(codex.spotlightActiveTitleColorHex == nil)
+    }
 }
