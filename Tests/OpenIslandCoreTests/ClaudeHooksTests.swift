@@ -694,6 +694,21 @@ struct ClaudeHooksTests {
     }
 
     @Test
+    func claudePermissionDetailPreservesFullMultilineCommand() {
+        let command = "for file in one two three; do\n  echo \"$file\"\ndone\n" + String(repeating: "echo full-output\n", count: 20)
+        let payload = ClaudeHookPayload(
+            cwd: "/tmp",
+            hookEventName: .permissionRequest,
+            sessionID: "s1",
+            toolName: "Bash",
+            toolInput: .object(["command": .string(command)])
+        )
+
+        #expect(payload.permissionRequestDetail == command.trimmingCharacters(in: .whitespacesAndNewlines))
+        #expect((payload.toolInputPreview?.count ?? 0) < command.count)
+    }
+
+    @Test
     func claudeNotificationSubtypeCanIdentifyAwaySummary() throws {
         let data = Data("""
         {

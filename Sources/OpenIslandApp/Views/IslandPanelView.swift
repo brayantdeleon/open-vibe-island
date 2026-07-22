@@ -1670,24 +1670,17 @@ private struct IslandSessionRow: View {
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(V6Palette.paper.opacity(0.86))
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(commandPreviewText)
+            AutoHeightScrollView(maxHeight: 220) {
+                Text(permissionMessageText)
                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(V6Palette.paper.opacity(0.78))
+                    .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-
-                if let path = session.permissionRequest?.affectedPath.trimmedForNotificationCard,
-                   !path.isEmpty {
-                    Text(path)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(V6Palette.paper.opacity(0.42))
-                        .lineLimit(1)
-                }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color.white.opacity(0.045))
@@ -1851,10 +1844,20 @@ private struct IslandSessionRow: View {
         }
     }
 
-    private var commandPreviewText: String {
+    private var permissionMessageText: String {
+        if let detail = session.permissionRequest?.detail?.trimmedForNotificationCard,
+           !detail.isEmpty {
+            return detail
+        }
+
+        if let affectedPath = session.permissionRequest?.affectedPath.trimmedForNotificationCard,
+           !affectedPath.isEmpty {
+            return affectedPath
+        }
+
         let preview = session.currentCommandPreviewText?.trimmedForNotificationCard
         if let preview, !preview.isEmpty {
-            return "$ \(preview)"
+            return preview
         }
         return session.permissionRequest?.summary.trimmedForNotificationCard ?? session.summary.trimmedForNotificationCard
     }

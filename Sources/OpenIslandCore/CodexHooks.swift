@@ -469,6 +469,24 @@ public extension CodexHookPayload {
         return "Codex is requesting permission."
     }
 
+    var permissionRequestDetail: String? {
+        if let description = toolInput?.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty {
+            return description
+        }
+
+        if let command = commandText?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !command.isEmpty {
+            return command
+        }
+
+        if let rawValue = toolInput?.rawValue {
+            return stringValue(for: rawValue)
+        }
+
+        return nil
+    }
+
     var permissionRequestAffectedPath: String {
         commandText ?? toolInput?.description ?? toolName ?? "Permission request"
     }

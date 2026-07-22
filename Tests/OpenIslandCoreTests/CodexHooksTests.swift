@@ -112,6 +112,25 @@ struct CodexHooksTests {
         #expect(payload.toolInput?.description == "Apply a focused patch to Sources/App.swift")
         #expect(payload.permissionRequestTitle == "Apply code patch")
         #expect(payload.permissionRequestSummary == "Apply a focused patch to Sources/App.swift")
+        #expect(payload.permissionRequestDetail == "Apply a focused patch to Sources/App.swift")
+    }
+
+    @Test
+    func codexPermissionDetailPreservesFullMultilineContent() throws {
+        let detail = "*** Begin Patch\n*** Update File: Sources/App.swift\n" + String(repeating: "+full line\n", count: 30) + "*** End Patch"
+        let payload = CodexHookPayload(
+            cwd: "/tmp/demo",
+            hookEventName: .permissionRequest,
+            model: "gpt-5-codex",
+            permissionMode: .default,
+            sessionID: "s1",
+            transcriptPath: nil,
+            toolName: "apply_patch",
+            toolInput: CodexHookToolInput(description: detail)
+        )
+
+        #expect(payload.permissionRequestDetail == detail)
+        #expect(payload.permissionRequestSummary.count < detail.count)
     }
 
     @Test
