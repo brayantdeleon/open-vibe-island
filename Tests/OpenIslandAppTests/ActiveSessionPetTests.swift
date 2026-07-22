@@ -9,7 +9,13 @@ struct ActiveSessionPetTests {
     func leadingSlotWidthFitsOneOrBothProviderPets() {
         #expect(V6LeadingActivityView.intrinsicWidth(for: []) == 24)
         #expect(V6LeadingActivityView.intrinsicWidth(for: [.codex]) == 24)
-        #expect(V6LeadingActivityView.intrinsicWidth(for: [.codex, .claude]) == 28)
+        #expect(V6LeadingActivityView.intrinsicWidth(for: [.codex, .claude]) == 52)
+        #expect(V6LeadingActivityView.macbookLeadingExtension(for: [.codex, .claude]) == 28)
+    }
+
+    @Test
+    func currentClawdArtworkIsPackagedWithTheApp() {
+        #expect(Bundle.appResources.url(forResource: "clawd-menubar", withExtension: "png") != nil)
     }
 
     @Test
