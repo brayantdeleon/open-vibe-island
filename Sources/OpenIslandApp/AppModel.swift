@@ -854,6 +854,22 @@ final class AppModel {
         return .idle
     }
 
+    /// At most one mascot per provider, regardless of how many tasks that
+    /// provider is running. Keep the stable Codex-then-Claude order when both
+    /// are active so the leading slot never reshuffles.
+    var islandClosedActivePets: [IslandLeadingPet] {
+        let runningTools = Set(
+            surfacedSessions
+                .filter { $0.phase == .running }
+                .map(\.tool)
+        )
+
+        return [
+            runningTools.contains(.codex) ? .codex : nil,
+            runningTools.contains(.claudeCode) ? .claude : nil,
+        ].compactMap { $0 }
+    }
+
     /// The spotlight session powering the center label (if any). Attention
     /// sessions first, then the most recent running one, then whatever's
     /// first.
