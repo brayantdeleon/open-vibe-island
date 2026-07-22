@@ -19,6 +19,16 @@ struct ActiveSessionPetTests {
     }
 
     @Test
+    func petAnimationTimingKeepsClawdCenteredAndSlowsCodex() {
+        let codexSpeed = V6LeadingActivityView.clawdFrameDuration
+            / V6LeadingActivityView.codexFrameDuration
+        #expect(abs(codexSpeed - 0.75) < 0.0001)
+        #expect(V6LeadingActivityView.clawdHopOffsets.reduce(0, +) == 0)
+        #expect(V6LeadingActivityView.clawdHopOffsets.min() == -1.75)
+        #expect(V6LeadingActivityView.clawdHopOffsets.max() == 1.75)
+    }
+
+    @Test
     func runningSessionsProduceOnePetPerProviderInStableOrder() {
         let model = AppModel()
         model.state = SessionState(sessions: [

@@ -42,6 +42,10 @@ struct V6LeadingActivityView: View {
     let mode: UnifiedBars.Mode
     let pets: [IslandLeadingPet]
 
+    static let clawdFrameDuration: TimeInterval = 0.14
+    static let codexFrameDuration = clawdFrameDuration / 0.75
+    static let clawdHopOffsets: [CGFloat] = [1.75, 0.75, -0.75, -1.75, -0.75, 0.75]
+
     static func intrinsicWidth(for pets: [IslandLeadingPet]) -> CGFloat {
         pets.count > 1 ? 52 : 24
     }
@@ -56,13 +60,10 @@ struct V6LeadingActivityView: View {
             UnifiedBars(mode: mode, size: 24)
                 .frame(width: 24, height: 24)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.14)) { context in
-                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.14)
-                HStack(spacing: pets.count > 1 ? 4 : 0) {
-                    ForEach(pets, id: \.self) { pet in
-                        MiniSessionPet(pet: pet, frame: frame)
-                            .frame(width: pets.count > 1 ? 24 : 20, height: 20)
-                    }
+            HStack(spacing: pets.count > 1 ? 4 : 0) {
+                ForEach(pets, id: \.self) { pet in
+                    MiniSessionPet(pet: pet)
+                        .frame(width: pets.count > 1 ? 24 : 20, height: 20)
                 }
             }
             .frame(width: Self.intrinsicWidth(for: pets), height: 24)
@@ -85,7 +86,6 @@ struct V6LeadingActivityView: View {
 
 private struct MiniSessionPet: View {
     let pet: IslandLeadingPet
-    let frame: Int
 
     private static let installedCodexFrames = PetdexPetLoader.selectedRunningFrames()
     private static let clawdImage: CGImage? = {
@@ -101,6 +101,18 @@ private struct MiniSessionPet: View {
 
     @ViewBuilder
     var body: some View {
+        let frameDuration = pet == .codex
+            ? V6LeadingActivityView.codexFrameDuration
+            : V6LeadingActivityView.clawdFrameDuration
+
+        TimelineView(.periodic(from: .now, by: frameDuration)) { context in
+            let frame = Int(context.date.timeIntervalSinceReferenceDate / frameDuration)
+            petFrame(frame: frame)
+        }
+    }
+
+    @ViewBuilder
+    private func petFrame(frame: Int) -> some View {
         switch pet {
         case .codex:
             if !Self.installedCodexFrames.isEmpty {
@@ -112,7 +124,7 @@ private struct MiniSessionPet: View {
                     .scaleEffect(1.4)
             } else {
                 Canvas(rendersAsynchronously: false) { context, size in
-                    drawCodexPet(in: context, size: size)
+                    drawCodexPet(in: context, size: size, frame: frame)
                 }
             }
         case .claude:
@@ -121,17 +133,17 @@ private struct MiniSessionPet: View {
                     .resizable()
                     .interpolation(.none)
                     .scaledToFit()
-                    .offset(y: clawdHopOffset)
+                    .offset(y: clawdHopOffset(frame: frame))
             }
         }
     }
 
-    private var clawdHopOffset: CGFloat {
-        let offsets: [CGFloat] = [0, -1, -2.5, -3.5, -2.5, -1]
+    private func clawdHopOffset(frame: Int) -> CGFloat {
+        let offsets = V6LeadingActivityView.clawdHopOffsets
         return offsets[frame % offsets.count]
     }
 
-    private func drawCodexPet(in context: GraphicsContext, size: CGSize) {
+    private func drawCodexPet(in context: GraphicsContext, size: CGSize, frame: Int) {
         let scale = min(size.width / 20, size.height / 20)
         let x = (size.width - 20 * scale) / 2
         let animationFrame = frame % 2
