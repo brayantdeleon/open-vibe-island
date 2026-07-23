@@ -36,7 +36,7 @@ final class AppModel {
     /// The pointer must remain continuously inside the closed island before a
     /// passive hover may open it. This keeps ordinary menu-bar navigation from
     /// expanding the island while preserving immediate click-to-open behavior.
-    static let hoverOpenDelay: TimeInterval = 2.0
+    static let hoverOpenDelay: TimeInterval = 1.0
 
     struct AcceptanceStep: Identifiable {
         let id: String
