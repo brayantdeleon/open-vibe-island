@@ -213,6 +213,13 @@ extension AgentSession {
         return "\(headline) · \(sessionName)"
     }
 
+    /// Notifications use the same project-plus-session identity as the
+    /// expanded session list. The provider may still omit a session name
+    /// when it has not published a first-class title.
+    var notificationHeadlineText: String {
+        spotlightHeadlineText
+    }
+
     var spotlightHeadlineSessionName: String? {
         switch tool {
         case .codex, .claudeCode:

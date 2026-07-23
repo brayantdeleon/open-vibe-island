@@ -374,6 +374,7 @@ struct AgentSessionPresentationTests {
         )
 
         #expect(session.spotlightHeadlineText == "worktree · README release notes")
+        #expect(session.notificationHeadlineText == "worktree · README release notes")
         #expect(session.spotlightPromptLineText == "You: Also confirm the worktree status.")
         #expect(session.notificationHeaderPromptLineText == nil)
     }
