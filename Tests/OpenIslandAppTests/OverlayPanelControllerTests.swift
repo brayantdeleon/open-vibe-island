@@ -18,7 +18,7 @@ struct OverlayPanelControllerTests {
 
     @Test @MainActor
     func closedIslandHoverUsesBalancedDwell() {
-        #expect(AppModel.hoverOpenDelay == 1.2)
+        #expect(AppModel.hoverOpenDelay == 1.0)
     }
 
     @Test @MainActor
@@ -31,11 +31,11 @@ struct OverlayPanelControllerTests {
         }
         var fired = false
 
-        timer.schedule(after: 1.2) {
+        timer.schedule(after: 1.0) {
             fired = true
         }
 
-        #expect(scheduledDelay == 1.2)
+        #expect(scheduledDelay == 1.0)
         #expect(!fired)
         #expect(timer.isPending)
 
@@ -53,7 +53,7 @@ struct OverlayPanelControllerTests {
         }
         var fired = false
 
-        timer.schedule(after: 1.2) {
+        timer.schedule(after: 1.0) {
             fired = true
         }
         timer.cancel()
