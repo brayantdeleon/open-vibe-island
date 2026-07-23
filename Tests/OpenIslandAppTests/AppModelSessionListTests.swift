@@ -937,6 +937,87 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func mergeDiscoveredSessionPreservesFirstClassLiveTitle() {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let model = AppModel()
+        model.state = SessionState(sessions: [
+            AgentSession(
+                id: "codex-session",
+                title: "Investigate approval notifications",
+                tool: .codex,
+                attachmentState: .attached,
+                phase: .running,
+                summary: "Working",
+                updatedAt: now,
+                jumpTarget: JumpTarget(
+                    terminalApp: "Codex.app",
+                    workspaceName: "open-island",
+                    paneTitle: "Investigate approval notifications"
+                )
+            ),
+        ])
+
+        let merged = model.discovery.mergeDiscoveredSessions([
+            AgentSession(
+                id: "codex-session",
+                title: "Codex · open-island",
+                tool: .codex,
+                attachmentState: .stale,
+                phase: .running,
+                summary: "Recovered",
+                updatedAt: now.addingTimeInterval(1),
+                jumpTarget: JumpTarget(
+                    terminalApp: "Codex.app",
+                    workspaceName: "open-island",
+                    paneTitle: "Codex · open-island"
+                )
+            ),
+        ])
+
+        #expect(merged.first?.title == "Investigate approval notifications")
+        #expect(merged.first?.spotlightHeadlineText == "open-island · Investigate approval notifications")
+    }
+
+    @Test
+    func mergeDiscoveredSessionDoesNotResolvePendingApproval() {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let request = PermissionRequest(
+            title: "Run command",
+            summary: "Allow the build command?",
+            affectedPath: "/tmp/open-island"
+        )
+        let model = AppModel()
+        model.state = SessionState(sessions: [
+            AgentSession(
+                id: "codex-session",
+                title: "Approval reliability",
+                tool: .codex,
+                attachmentState: .attached,
+                phase: .waitingForApproval,
+                summary: request.summary,
+                updatedAt: now,
+                permissionRequest: request
+            ),
+        ])
+
+        let merged = model.discovery.mergeDiscoveredSessions([
+            AgentSession(
+                id: "codex-session",
+                title: "Codex · open-island",
+                tool: .codex,
+                attachmentState: .stale,
+                phase: .completed,
+                summary: "Recovered completion",
+                updatedAt: now.addingTimeInterval(1)
+            ),
+        ])
+
+        #expect(merged.first?.phase == .waitingForApproval)
+        #expect(merged.first?.permissionRequest == request)
+        #expect(merged.first?.summary == request.summary)
+    }
+
+    @Test
     func mergeDiscoveredCodexSessionReplacesRootWorkspaceWithRolloutWorkspace() {
         let now = Date(timeIntervalSince1970: 2_000)
         let model = AppModel()

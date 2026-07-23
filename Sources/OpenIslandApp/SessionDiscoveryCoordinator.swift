@@ -217,14 +217,32 @@ final class SessionDiscoveryCoordinator {
     private func merge(discovered: AgentSession, into existing: AgentSession) -> AgentSession {
         var merged = existing
         let discoveredIsNewer = discovered.updatedAt >= existing.updatedAt
+        let preservesPendingApproval = existing.phase == .waitingForApproval
+            && existing.permissionRequest != nil
+        let preservesPendingQuestion = existing.phase == .waitingForAnswer
+            && existing.questionPrompt != nil
+        let preservesActionableState = preservesPendingApproval || preservesPendingQuestion
 
         if discoveredIsNewer {
-            merged.title = discovered.title
-            merged.phase = discovered.phase
-            merged.summary = discovered.summary
             merged.updatedAt = discovered.updatedAt
-            merged.permissionRequest = discovered.permissionRequest
-            merged.questionPrompt = discovered.questionPrompt
+
+            // Transcript/rollout discovery often has only a generic
+            // "Provider · project" fallback. Do not let that erase a
+            // first-class title supplied by the live app or session index.
+            if discovered.spotlightHeadlineSessionName != nil
+                || existing.spotlightHeadlineSessionName == nil {
+                merged.title = discovered.title
+            }
+
+            // A file snapshot can race a live approval/question event. Keep
+            // the blocking state until the user or provider explicitly
+            // resolves it instead of collapsing the actionable notification.
+            if !preservesActionableState {
+                merged.phase = discovered.phase
+                merged.summary = discovered.summary
+                merged.permissionRequest = discovered.permissionRequest
+                merged.questionPrompt = discovered.questionPrompt
+            }
         }
 
         merged.origin = existing.origin ?? discovered.origin

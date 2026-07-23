@@ -86,6 +86,8 @@ enum CompletionMessageParser {
         var result: [CompletionMessageSegment] = []
         var markdownStart = source.startIndex
         var cursor = source.startIndex
+        let protectedTableRanges = markdownTableRanges(in: source)
+        var protectedTableIndex = 0
 
         func appendMarkdown(endingAt end: String.Index) {
             guard markdownStart < end else { return }
@@ -93,6 +95,19 @@ enum CompletionMessageParser {
         }
 
         while cursor < source.endIndex {
+            while protectedTableIndex < protectedTableRanges.count,
+                  cursor >= protectedTableRanges[protectedTableIndex].upperBound {
+                protectedTableIndex += 1
+            }
+
+            if protectedTableIndex < protectedTableRanges.count {
+                let tableRange = protectedTableRanges[protectedTableIndex]
+                if cursor >= tableRange.lowerBound, cursor < tableRange.upperBound {
+                    cursor = tableRange.upperBound
+                    continue
+                }
+            }
+
             if let match = mathMatch(in: source, startingAt: cursor) {
                 appendMarkdown(endingAt: cursor)
                 result.append(.math(match.contents, display: match.display))
@@ -111,6 +126,74 @@ enum CompletionMessageParser {
 
         appendMarkdown(endingAt: source.endIndex)
         return result
+    }
+
+    /// Keep complete GFM tables in one Markdown segment. Extracting inline
+    /// math from an individual cell separates the header, delimiter, and body
+    /// into different Markdown views, which makes the table and all following
+    /// content render as malformed prose.
+    private static func markdownTableRanges(in source: String) -> [Range<String.Index>] {
+        struct SourceLine {
+            let text: Substring
+            let fullRange: Range<String.Index>
+        }
+
+        var lines: [SourceLine] = []
+        var lineStart = source.startIndex
+
+        while lineStart < source.endIndex {
+            let newline = source[lineStart...].firstIndex(where: \.isNewline)
+            let lineEnd = newline ?? source.endIndex
+            let fullEnd = newline.map { source.index(after: $0) } ?? source.endIndex
+            lines.append(SourceLine(
+                text: source[lineStart..<lineEnd],
+                fullRange: lineStart..<fullEnd
+            ))
+            lineStart = fullEnd
+        }
+
+        guard lines.count >= 2 else { return [] }
+
+        var ranges: [Range<String.Index>] = []
+        var index = 1
+        while index < lines.count {
+            guard isTableDelimiterLine(lines[index].text),
+                  lines[index - 1].text.contains("|") else {
+                index += 1
+                continue
+            }
+
+            let tableStart = lines[index - 1].fullRange.lowerBound
+            var tableEndIndex = index
+            var candidate = index + 1
+            while candidate < lines.count {
+                let trimmed = lines[candidate].text.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty, trimmed.contains("|") else { break }
+                tableEndIndex = candidate
+                candidate += 1
+            }
+
+            ranges.append(tableStart..<lines[tableEndIndex].fullRange.upperBound)
+            index = candidate
+        }
+
+        return ranges
+    }
+
+    private static func isTableDelimiterLine(_ line: Substring) -> Bool {
+        var trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("|") { trimmed.removeFirst() }
+        if trimmed.hasSuffix("|") { trimmed.removeLast() }
+
+        let cells = trimmed.split(separator: "|", omittingEmptySubsequences: false)
+        guard !cells.isEmpty else { return false }
+
+        return cells.allSatisfy { cell in
+            var marker = cell.trimmingCharacters(in: .whitespaces)
+            if marker.hasPrefix(":") { marker.removeFirst() }
+            if marker.hasSuffix(":") { marker.removeLast() }
+            return marker.count >= 3 && marker.allSatisfy { $0 == "-" }
+        }
     }
 
     private struct MathMatch {

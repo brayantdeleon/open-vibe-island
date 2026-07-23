@@ -1479,22 +1479,9 @@ private struct IslandSessionRow: View {
     }
 
     private var summaryHeadlineText: String {
-        if presentation == .notification, session.phase == .completed {
-            return notificationWorkspaceHeadlineText
-        }
-
-        return session.spotlightHeadlineText
-    }
-
-    private var notificationWorkspaceHeadlineText: String {
-        let workspace = session.spotlightWorkspaceName.trimmedForNotificationCard
-        let title = workspace.isEmpty ? session.tool.displayName : workspace
-        guard let branch = session.spotlightWorktreeBranch?.trimmedForNotificationCard,
-              !branch.isEmpty else {
-            return title
-        }
-
-        return "\(title) (\(branch))"
+        presentation == .notification
+            ? session.notificationHeadlineText
+            : session.spotlightHeadlineText
     }
 
     private var notificationCompletedPromptLineText: String? {

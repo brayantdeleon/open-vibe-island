@@ -108,4 +108,28 @@ struct CompletionMessageParserTests {
 
         #expect(CompletionMessageParser.segments(in: source) == [.markdown(source)])
     }
+
+    @Test
+    func keepsMarkdownTableWholeWhenCellsContainLatex() {
+        let source = """
+| Metric | Formula |
+|:---|---:|
+| Circle area | $\\pi r^2$ |
+| Growth | $e^{rt}$ |
+
+Outside the table: $$\\int_0^1 x^2 dx$$
+"""
+
+        #expect(CompletionMessageParser.segments(in: source) == [
+            .markdown("""
+| Metric | Formula |
+|:---|---:|
+| Circle area | $\\pi r^2$ |
+| Growth | $e^{rt}$ |
+
+Outside the table:
+""" + " "),
+            .math("\\int_0^1 x^2 dx", display: true),
+        ])
+    }
 }
