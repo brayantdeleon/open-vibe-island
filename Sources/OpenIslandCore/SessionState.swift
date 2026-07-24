@@ -104,11 +104,9 @@ public struct SessionState: Equatable, Sendable {
                 return
             }
 
-            let keepsPendingApproval = payload.phase == .running
-                && session.phase == .waitingForApproval
+            let keepsPendingApproval = session.phase == .waitingForApproval
                 && session.permissionRequest != nil
-            let keepsPendingQuestion = payload.phase == .running
-                && session.phase == .waitingForAnswer
+            let keepsPendingQuestion = session.phase == .waitingForAnswer
                 && session.questionPrompt != nil
             let preservesActionableState = keepsPendingApproval || keepsPendingQuestion
 

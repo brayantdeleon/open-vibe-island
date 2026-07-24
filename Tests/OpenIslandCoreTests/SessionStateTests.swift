@@ -319,6 +319,46 @@ struct SessionStateTests {
     }
 
     @Test
+    func keepsApprovalStateWhileIncidentalCompletedUpdatesArrive() {
+        let startedAt = Date(timeIntervalSince1970: 3_000)
+        let request = PermissionRequest(
+            title: "Apply code patch",
+            summary: "Codex wants to update SessionState.swift.",
+            detail: "*** Begin Patch\n*** Update File: SessionState.swift",
+            affectedPath: "SessionState.swift"
+        )
+        var state = SessionState(
+            sessions: [
+                AgentSession(
+                    id: "codex-approval",
+                    title: "Codex · repo",
+                    tool: .codex,
+                    attachmentState: .attached,
+                    phase: .waitingForApproval,
+                    summary: request.summary,
+                    updatedAt: startedAt,
+                    permissionRequest: request
+                )
+            ]
+        )
+
+        state.apply(
+            .activityUpdated(
+                SessionActivityUpdated(
+                    sessionID: "codex-approval",
+                    summary: "Turn completed.",
+                    phase: .completed,
+                    timestamp: startedAt.addingTimeInterval(1)
+                )
+            )
+        )
+
+        #expect(state.session(id: "codex-approval")?.phase == .waitingForApproval)
+        #expect(state.session(id: "codex-approval")?.summary == request.summary)
+        #expect(state.session(id: "codex-approval")?.permissionRequest == request)
+    }
+
+    @Test
     func actionableStateResolvedClearsWaitingForApproval() {
         let startedAt = Date(timeIntervalSince1970: 5_000)
         var state = SessionState(
