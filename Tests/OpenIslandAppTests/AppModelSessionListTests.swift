@@ -803,6 +803,45 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func staleRolloutCompletionDoesNotReplaceNewerRunningState() {
+        let older = Date(timeIntervalSince1970: 2_000)
+        let newer = older.addingTimeInterval(5)
+        let model = AppModel()
+        model.suppressFrontmostNotifications = false
+        model.state = SessionState(
+            sessions: [
+                AgentSession(
+                    id: "current-session",
+                    title: "Codex · open-island",
+                    tool: .codex,
+                    origin: .live,
+                    attachmentState: .attached,
+                    phase: .running,
+                    summary: "Working on the next turn.",
+                    updatedAt: newer
+                ),
+            ]
+        )
+
+        model.applyTrackedEvent(
+            .sessionCompleted(
+                SessionCompleted(
+                    sessionID: "current-session",
+                    summary: "An older turn finished.",
+                    timestamp: older
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .rollout
+        )
+
+        #expect(model.state.session(id: "current-session")?.phase == .running)
+        #expect(model.state.session(id: "current-session")?.summary == "Working on the next turn.")
+        #expect(model.notchStatus == .closed)
+        #expect(model.notchOpenReason == nil)
+    }
+
+    @Test
     func bridgeNotificationIsSuppressedWhenSessionIsAlreadyFrontmost() async throws {
         let now = Date(timeIntervalSince1970: 2_000)
         let model = AppModel(
@@ -1589,7 +1628,6 @@ struct AppModelSessionListTests {
     @MainActor
     func notificationMeasuredHeightClearedWhenSameSessionCardContentChanges() {
         let model = AppModel()
-        model.isSoundMuted = true
 
         var session = AgentSession(
             id: "same-session",
@@ -1633,7 +1671,6 @@ struct AppModelSessionListTests {
     @MainActor
     func hoveredNotificationCardIsNotReplacedByAnotherNotification() {
         let model = AppModel()
-        model.isSoundMuted = true
 
         var currentSession = AgentSession(
             id: "current-session",

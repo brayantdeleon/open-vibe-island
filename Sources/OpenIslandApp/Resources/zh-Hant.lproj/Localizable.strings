@@ -6,7 +6,6 @@
 /* Settings - Tab Labels */
 "settings.tab.general" = "一般";
 "settings.tab.display" = "顯示";
-"settings.tab.sound" = "聲音";
 "settings.tab.shortcuts" = "快捷鍵";
 "settings.tab.lab" = "實驗室";
 "settings.tab.about" = "關於";
@@ -136,9 +135,6 @@
 "settings.display.layoutMode" = "版面模式";
 
 /* Settings - Sound */
-"settings.sound.notifications" = "通知音效";
-"settings.sound.mute" = "靜音";
-"settings.sound.selectSound" = "選擇音效";
 
 /* Settings - Setup */
 "settings.tab.setup" = "安裝引導";

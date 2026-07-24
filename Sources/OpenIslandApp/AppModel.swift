@@ -15,7 +15,6 @@ extension Notification.Name {
 @MainActor
 @Observable
 final class AppModel {
-    private static let soundMutedDefaultsKey = "overlay.sound.muted"
     private static let showDockIconDefaultsKey = "app.showDockIcon"
     private static let hapticFeedbackEnabledDefaultsKey = "app.hapticFeedbackEnabled"
     private static let islandRightSlotDefaultsKey = "appearance.island.v6.rightSlot"
@@ -308,24 +307,6 @@ final class AppModel {
     }
     @ObservationIgnored
     private var isApplyingLaunchAtLogin = false
-    var isSoundMuted = false {
-        didSet {
-            guard isSoundMuted != oldValue else {
-                return
-            }
-
-            UserDefaults.standard.set(isSoundMuted, forKey: Self.soundMutedDefaultsKey)
-            lastActionMessage = isSoundMuted
-                ? "Island sound notifications muted."
-                : "Island sound notifications enabled."
-        }
-    }
-    var selectedSoundName: String = NotificationSoundService.defaultSoundName {
-        didSet {
-            guard selectedSoundName != oldValue else { return }
-            NotificationSoundService.selectedSoundName = selectedSoundName
-        }
-    }
     var overlayDisplaySelectionID: String {
         get { overlay.overlayDisplaySelectionID }
         set { overlay.overlayDisplaySelectionID = newValue }
@@ -629,8 +610,6 @@ final class AppModel {
             Self.completionReplyEnabledDefaultsKey: false,
             Self.suppressFrontmostNotificationsDefaultsKey: true,
         ])
-        isSoundMuted = UserDefaults.standard.bool(forKey: Self.soundMutedDefaultsKey)
-        selectedSoundName = NotificationSoundService.selectedSoundName
         showDockIcon = UserDefaults.standard.bool(forKey: Self.showDockIconDefaultsKey)
         hapticFeedbackEnabled = UserDefaults.standard.bool(forKey: Self.hapticFeedbackEnabledDefaultsKey)
         suppressFrontmostNotifications = UserDefaults.standard.bool(forKey: Self.suppressFrontmostNotificationsDefaultsKey)
@@ -661,9 +640,6 @@ final class AppModel {
         }
         overlay.activeIslandCardSessionAccessor = { [weak self] in
             self?.activeIslandCardSession
-        }
-        overlay.isSoundMutedAccessor = { [weak self] in
-            self?.isSoundMuted ?? false
         }
         overlay.ignoresPointerExitAccessor = { [weak self] in
             self?.ignoresPointerExitDuringHarness ?? false
@@ -1399,8 +1375,12 @@ final class AppModel {
         NotificationCenter.default.post(name: .openIslandSelectSetupTab, object: nil)
     }
 
-    func toggleSoundMuted() {
-        isSoundMuted.toggle()
+    var isSessionRefreshInProgress: Bool {
+        discovery.isManualRefreshInProgress
+    }
+
+    func refreshSessionsManually() {
+        discovery.refreshCodexAppSessions()
     }
 
     func approveFocusedPermission(_ approved: Bool) {
@@ -1615,6 +1595,18 @@ final class AppModel {
            case let .activityUpdated(payload) = event,
            payload.phase == .running,
            state.session(id: payload.sessionID)?.phase == .completed {
+            return
+        }
+
+        // Rollout file notifications may arrive after the app-server has
+        // already reported newer activity for the same thread. Applying that
+        // stale completion would briefly open a finished card before the
+        // current running state closes it again.
+        if ingress == .rollout,
+           case let .sessionCompleted(payload) = event,
+           let current = state.session(id: payload.sessionID),
+           current.phase != .completed,
+           current.updatedAt > payload.timestamp {
             return
         }
 
