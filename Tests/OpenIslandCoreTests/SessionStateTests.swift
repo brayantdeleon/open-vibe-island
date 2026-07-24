@@ -175,6 +175,55 @@ struct SessionStateTests {
     }
 
     @Test
+    func invisibleCleanupRetainsOnlyRecentCompletedSessionsWhenRequested() {
+        let now = Date(timeIntervalSince1970: 10_000)
+
+        var recentCompleted = AgentSession(
+            id: "recent-completed",
+            title: "Recent",
+            tool: .codex,
+            phase: .completed,
+            summary: "Finished recently",
+            updatedAt: now.addingTimeInterval(-300)
+        )
+        recentCompleted.isSessionEnded = true
+        recentCompleted.isProcessAlive = false
+
+        var oldCompleted = AgentSession(
+            id: "old-completed",
+            title: "Old",
+            tool: .codex,
+            phase: .completed,
+            summary: "Finished long ago",
+            updatedAt: now.addingTimeInterval(-3_601)
+        )
+        oldCompleted.isSessionEnded = true
+        oldCompleted.isProcessAlive = false
+
+        var invisibleRunning = AgentSession(
+            id: "invisible-running",
+            title: "Missing process",
+            tool: .codex,
+            phase: .running,
+            summary: "No longer running",
+            updatedAt: now
+        )
+        invisibleRunning.isSessionEnded = true
+        invisibleRunning.isProcessAlive = false
+
+        var state = SessionState(
+            sessions: [recentCompleted, oldCompleted, invisibleRunning]
+        )
+
+        let changed = state.removeInvisibleSessions(
+            retainingCompletedSince: now.addingTimeInterval(-3_600)
+        )
+
+        #expect(changed)
+        #expect(state.sessions.map(\.id) == ["recent-completed"])
+    }
+
+    @Test
     func resolvesUserActionsAndKeepsSessionsSortedByRecency() {
         let startedAt = Date(timeIntervalSince1970: 2_000)
         var state = SessionState(

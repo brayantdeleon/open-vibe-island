@@ -435,9 +435,6 @@ public struct SessionState: Equatable, Sendable {
         return changed
     }
 
-    /// Remove sessions that are no longer visible in the island.
-    /// Returns `true` if any sessions were removed.
-    @discardableResult
     /// Manually mark a session as completed and ended.
     /// Intended for remote sessions whose SSH tunnel dropped without a
     /// SessionEnd hook.
@@ -449,10 +446,25 @@ public struct SessionState: Equatable, Sendable {
         upsert(session)
     }
 
-    public mutating func removeInvisibleSessions() -> Bool {
+    /// Remove sessions that are no longer visible in the island.
+    /// Returns `true` if any sessions were removed.
+    @discardableResult
+    public mutating func removeInvisibleSessions(
+        retainingCompletedSince completedCutoff: Date? = nil
+    ) -> Bool {
         let before = sessionsByID.count
         sessionsByID = sessionsByID.filter { _, session in
-            session.isVisibleInIsland
+            if session.isVisibleInIsland {
+                return true
+            }
+
+            guard let completedCutoff,
+                  session.phase == .completed,
+                  !session.isRealtimeVoiceChatSession else {
+                return false
+            }
+
+            return session.updatedAt >= completedCutoff
         }
         return sessionsByID.count != before
     }
