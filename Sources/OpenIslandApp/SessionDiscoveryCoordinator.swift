@@ -58,6 +58,12 @@ final class SessionDiscoveryCoordinator {
     private let codexRolloutDiscovery = CodexRolloutDiscovery()
 
     @ObservationIgnored
+    private var codexSessionIndexWatcher: CodexSessionIndexWatcher?
+
+    @ObservationIgnored
+    private var codexSessionNameRefreshTask: Task<Void, Never>?
+
+    @ObservationIgnored
     private let claudeTranscriptDiscovery = ClaudeTranscriptDiscovery()
 
     @ObservationIgnored
@@ -423,6 +429,7 @@ final class SessionDiscoveryCoordinator {
     /// Periodic Codex.app maintenance: reconcile archived/stalled sessions and
     /// re-scan rollouts. Throttled internally; safe to call from the 2s monitor loop.
     func maintainCodexAppSessionsIfNeeded() {
+        startCodexSessionIndexWatcherIfNeeded()
         reconcileStalledCodexAppSessionsIfNeeded()
         rediscoverCodexAppSessionsIfNeeded()
     }
@@ -476,14 +483,23 @@ final class SessionDiscoveryCoordinator {
         let discovery = codexRolloutDiscovery
         Task.detached(priority: .utility) { [weak self] in
             let discovered = discovery.discoverRecentSessions()
-            guard !discovered.isEmpty else { return }
+            let sessionNamesByID = discovery.discoverSessionNamesByID()
+            guard !discovered.isEmpty || !sessionNamesByID.isEmpty else { return }
             await MainActor.run { [weak self] in
-                self?.applyCodexAppRediscovery(discovered)
+                self?.applyCodexAppRediscovery(
+                    discovered,
+                    sessionNamesByID: sessionNamesByID
+                )
             }
         }
     }
 
-    private func applyCodexAppRediscovery(_ records: [CodexTrackedSessionRecord]) {
+    private func applyCodexAppRediscovery(
+        _ records: [CodexTrackedSessionRecord],
+        sessionNamesByID: [String: String]
+    ) {
+        applyCodexSessionNames(sessionNamesByID)
+
         let existingIDs = Set(state.sessions.filter { $0.tool == .codex }.map(\.id))
         let existingPaths = Set(state.sessions.compactMap(\.codexMetadata?.transcriptPath))
 
@@ -520,6 +536,68 @@ final class SessionDiscoveryCoordinator {
         refreshCodexRolloutTracking()
         scheduleCodexSessionPersistence()
         onStatusMessage?("Discovered \(newRecords.count) new Codex.app session(s) via rollout re-scan.")
+    }
+
+    private func startCodexSessionIndexWatcherIfNeeded() {
+        guard codexSessionIndexWatcher == nil else { return }
+
+        let watcher = CodexSessionIndexWatcher(
+            sessionIndexURL: CodexRolloutDiscovery.defaultSessionIndexURL
+        ) { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshCodexSessionNamesFromIndex()
+            }
+        }
+        codexSessionIndexWatcher = watcher
+        watcher.start()
+    }
+
+    private func refreshCodexSessionNamesFromIndex() {
+        codexSessionNameRefreshTask?.cancel()
+
+        let discovery = codexRolloutDiscovery
+        codexSessionNameRefreshTask = Task.detached(priority: .utility) { [weak self] in
+            let sessionNamesByID = discovery.discoverSessionNamesByID()
+            guard !Task.isCancelled else { return }
+
+            _ = await MainActor.run { [weak self] in
+                self?.applyCodexSessionNames(sessionNamesByID)
+            }
+        }
+    }
+
+    @discardableResult
+    func applyCodexSessionNames(_ sessionNamesByID: [String: String]) -> Int {
+        let result = Self.applyingCodexSessionNames(sessionNamesByID, to: state)
+        guard result.updatedCount > 0 else { return 0 }
+
+        state = result.state
+        scheduleCodexSessionPersistence()
+        onStatusMessage?(
+            "Updated \(result.updatedCount) Codex thread name\(result.updatedCount == 1 ? "" : "s")."
+        )
+        return result.updatedCount
+    }
+
+    static func applyingCodexSessionNames(
+        _ sessionNamesByID: [String: String],
+        to state: SessionState
+    ) -> (state: SessionState, updatedCount: Int) {
+        var updatedState = state
+        var updatedCount = 0
+
+        for session in state.sessions where session.tool == .codex {
+            guard let rawName = sessionNamesByID[session.id] else { continue }
+            let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, name != session.title else { continue }
+
+            updatedState.apply(.sessionTitleUpdated(
+                SessionTitleUpdated(sessionID: session.id, title: name)
+            ))
+            updatedCount += 1
+        }
+
+        return (updatedState, updatedCount)
     }
 
     // MARK: - Persistence scheduling
