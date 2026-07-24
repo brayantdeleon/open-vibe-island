@@ -6,7 +6,6 @@
 /* Settings - Tab Labels */
 "settings.tab.general" = "General";
 "settings.tab.display" = "Display";
-"settings.tab.sound" = "Sound";
 "settings.tab.shortcuts" = "Shortcuts";
 "settings.tab.lab" = "Lab";
 "settings.tab.about" = "About";
@@ -136,9 +135,6 @@
 "settings.display.layoutMode" = "Layout Mode";
 
 /* Settings - Sound */
-"settings.sound.notifications" = "Notification Sounds";
-"settings.sound.mute" = "Mute";
-"settings.sound.selectSound" = "Select Sound";
 
 /* Settings - Setup */
 "settings.tab.setup" = "Setup";

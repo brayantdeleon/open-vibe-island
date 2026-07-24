@@ -419,19 +419,19 @@ final class SessionDiscoveryCoordinator {
     }
 
     @ObservationIgnored
-    private var lastCodexAppRescanDate: Date = .distantPast
-
-    @ObservationIgnored
     private var lastCodexAppReconcileDate: Date = .distantPast
+
+    private(set) var isManualRefreshInProgress = false
 
     // MARK: - Rollout tracking
 
-    /// Periodic Codex.app maintenance: reconcile archived/stalled sessions and
-    /// re-scan rollouts. Throttled internally; safe to call from the 2s monitor loop.
+    /// Periodic Codex.app maintenance only reconciles tracked sessions. Full
+    /// rollout discovery is intentionally user-driven because repeatedly
+    /// rebuilding the discovered set can re-add sessions just removed by
+    /// lifecycle reconciliation.
     func maintainCodexAppSessionsIfNeeded() {
         startCodexSessionIndexWatcherIfNeeded()
         reconcileStalledCodexAppSessionsIfNeeded()
-        rediscoverCodexAppSessionsIfNeeded()
     }
 
     func refreshCodexRolloutTracking() {
@@ -469,27 +469,26 @@ final class SessionDiscoveryCoordinator {
         }
     }
 
-    // MARK: - Codex.app periodic re-discovery
+    // MARK: - Codex.app manual re-discovery
 
-    /// Re-scan `~/.codex/sessions/` for rollout files not yet tracked.
-    /// Called periodically when Codex.app is running as a fallback when
-    /// the app-server connection is unavailable.  Throttled to at most
-    /// once per 10 seconds.
-    func rediscoverCodexAppSessionsIfNeeded() {
-        let now = Date.now
-        guard now.timeIntervalSince(lastCodexAppRescanDate) >= 10 else { return }
-        lastCodexAppRescanDate = now
-
+    /// Explicitly re-scan `~/.codex/sessions/` for untracked rollouts. The
+    /// app-server and session-index watcher remain responsible for live
+    /// activity and title changes between manual refreshes.
+    func refreshCodexAppSessions() {
+        guard !isManualRefreshInProgress else { return }
+        isManualRefreshInProgress = true
         let discovery = codexRolloutDiscovery
         Task.detached(priority: .utility) { [weak self] in
             let discovered = discovery.discoverRecentSessions()
             let sessionNamesByID = discovery.discoverSessionNamesByID()
-            guard !discovered.isEmpty || !sessionNamesByID.isEmpty else { return }
             await MainActor.run { [weak self] in
-                self?.applyCodexAppRediscovery(
+                guard let self else { return }
+                self.isManualRefreshInProgress = false
+                self.applyCodexAppRediscovery(
                     discovered,
                     sessionNamesByID: sessionNamesByID
                 )
+                self.onStatusMessage?("Session list refreshed.")
             }
         }
     }
