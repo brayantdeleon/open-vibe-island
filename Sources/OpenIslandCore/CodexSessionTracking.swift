@@ -378,6 +378,12 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
             .appendingPathComponent(".codex/sessions", isDirectory: true)
     }
 
+    public static var defaultSessionIndexURL: URL {
+        defaultRootURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("session_index.jsonl")
+    }
+
     private let rootURL: URL
     private let sessionIndexURL: URL
     private let fileManager: FileManager
@@ -443,7 +449,7 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
             }
             .prefix(maxFiles)
 
-        let sessionNamesByID = loadSessionNamesByID()
+        let sessionNamesByID = discoverSessionNamesByID()
         var recordsByID: [String: CodexTrackedSessionRecord] = [:]
         for candidate in recentCandidates {
             guard var record = discoverRecord(
@@ -550,7 +556,7 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
 
     private static let streamingChunkSize = 64 * 1_024
 
-    private func loadSessionNamesByID() -> [String: String] {
+    public func discoverSessionNamesByID() -> [String: String] {
         guard let fileHandle = try? FileHandle(forReadingFrom: sessionIndexURL) else {
             return [:]
         }

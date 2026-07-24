@@ -1005,6 +1005,47 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func codexSessionIndexNamesUpdateExistingCodexSessionsOnly() {
+        let now = Date(timeIntervalSince1970: 2_000)
+        let state = SessionState(sessions: [
+            AgentSession(
+                id: "codex-session",
+                title: "Old Codex name",
+                tool: .codex,
+                phase: .running,
+                summary: "Working",
+                updatedAt: now,
+                jumpTarget: JumpTarget(
+                    terminalApp: "Codex.app",
+                    workspaceName: "open-island",
+                    paneTitle: "Old Codex name"
+                )
+            ),
+            AgentSession(
+                id: "claude-session",
+                title: "Claude name",
+                tool: .claudeCode,
+                phase: .running,
+                summary: "Working",
+                updatedAt: now
+            ),
+        ])
+
+        let result = SessionDiscoveryCoordinator.applyingCodexSessionNames(
+            [
+                "codex-session": "Renamed Codex thread",
+                "claude-session": "Incorrect cross-provider name",
+            ],
+            to: state
+        )
+
+        #expect(result.updatedCount == 1)
+        #expect(result.state.session(id: "codex-session")?.title == "Renamed Codex thread")
+        #expect(result.state.session(id: "codex-session")?.jumpTarget?.paneTitle == "Renamed Codex thread")
+        #expect(result.state.session(id: "claude-session")?.title == "Claude name")
+    }
+
+    @Test
     func mergeDiscoveredSessionDoesNotResolvePendingApproval() {
         let now = Date(timeIntervalSince1970: 2_000)
         let request = PermissionRequest(
