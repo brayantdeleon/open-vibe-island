@@ -210,6 +210,9 @@
 "island.section.inProgress" = "進行中";
 "island.section.justDone" = "剛完成";
 "island.section.idle" = "閒置";
+"island.section.hidden" = "已隱藏";
+"island.session.hide" = "隱藏會話";
+"island.session.unhide" = "取消隱藏會話";
 "island.showAll" = "顯示全部 %lld 個工作階段";
 "island.collapseList" = "收起清單";
 "island.usageWaiting" = "等待用量資料";

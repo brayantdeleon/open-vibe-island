@@ -57,6 +57,7 @@ final class OverlayPanelController {
     // Content padding top + scroll padding + v8 list header/footer + bottom inset.
     // Rows are now full-width scan rows, so the old inter-card spacing is gone.
     private static let openedContentVerticalInsets: CGFloat = 84
+    private static let hiddenSectionHeaderHeight: CGFloat = 40
     private static let notificationMeasuredContentPadding: CGFloat = 8
     private static let notificationEstimatedVerticalInsets: CGFloat = 36
     private static let openedEmptyStateHeight: CGFloat = 108
@@ -514,11 +515,17 @@ final class OverlayPanelController {
     private func openedContentHeight(for model: AppModel) -> CGFloat {
         let now = Date.now
         let visibleSessions = openedVisibleSessions(
-            sessions: model.islandListSessions
+            sessions: model.islandRenderedSessions
         )
+        let hiddenSectionHeaderHeight = model.hiddenIslandSessions.isEmpty
+            ? 0
+            : Self.hiddenSectionHeaderHeight
 
         if visibleSessions.isEmpty {
-            return Self.openedEmptyStateHeight
+            return max(
+                Self.openedEmptyStateHeight,
+                hiddenSectionHeaderHeight + Self.openedContentVerticalInsets
+            )
         }
 
         let actionableID = model.islandSurface.sessionID
@@ -552,7 +559,7 @@ final class OverlayPanelController {
 
         let rowsHeight = rowHeights.reduce(CGFloat.zero, +)
         let spacingHeight = CGFloat(max(0, rowHeights.count - 1)) * Self.openedRowSpacing
-        let listHeight = rowsHeight + spacingHeight
+        let listHeight = rowsHeight + spacingHeight + hiddenSectionHeaderHeight
         // Cap to match AutoHeightScrollView's maxHeight in IslandPanelView.
         let cappedListHeight = min(listHeight, Self.maxSessionListHeight)
         return cappedListHeight + Self.openedContentVerticalInsets

@@ -614,7 +614,11 @@ struct IslandPanelView: View {
                     onAnswer: { model.answerQuestion(for: session.id, answer: $0) },
                     onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
                         ? { model.replyToSession(session, text: $0) } : nil,
-                    onJump: { model.jumpToSession(session) }
+                    onJump: { model.jumpToSession(session) },
+                    onHide: model.isSessionHidden(session)
+                        ? nil : { model.hideSession(session) },
+                    onUnhide: model.isSessionHidden(session)
+                        ? { model.unhideSession(session) } : nil
                 )
                 .id(notificationCardIdentity(for: session))
 
@@ -657,11 +661,17 @@ struct IslandPanelView: View {
                                 onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
                                     ? { model.replyToSession(session, text: $0) } : nil,
                                 onJump: { model.jumpToSession(session) },
-                                onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
+                                onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil,
+                                onHide: model.isSessionHidden(session)
+                                    ? nil : { model.hideSession(session) },
+                                onUnhide: model.isSessionHidden(session)
+                                    ? { model.unhideSession(session) } : nil
                             )
                         }
                     }
                 }
+
+                hiddenSessionsSection(referenceDate: referenceDate)
             }
 
             if !isNotificationMode {
@@ -707,9 +717,72 @@ struct IslandPanelView: View {
                         onReply: TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled)
                             ? { model.replyToSession(session, text: $0) } : nil,
                         onJump: { model.jumpToSession(session) },
-                        onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil
+                        onDismiss: session.isRemote ? { model.dismissSession(session.id) } : nil,
+                        onHide: model.isSessionHidden(session)
+                            ? nil : { model.hideSession(session) },
+                        onUnhide: model.isSessionHidden(session)
+                            ? { model.unhideSession(session) } : nil
                     )
                 }
+            }
+        }
+
+        hiddenSessionsSection(referenceDate: referenceDate)
+    }
+
+    @ViewBuilder
+    private func hiddenSessionsSection(referenceDate: Date) -> some View {
+        let sessions = model.hiddenIslandSessions
+        if !sessions.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    model.toggleHiddenSessionSection()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.slash.fill")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .frame(width: 10)
+                        Text(lang.t("island.section.hidden").uppercased())
+                            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                            .tracking(0.4)
+                        Text("\(sessions.count)")
+                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(V6Palette.paper.opacity(0.4))
+                        Spacer(minLength: 0)
+                        Image(systemName: model.isHiddenSessionSectionExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 9.5, weight: .semibold))
+                    }
+                    .foregroundStyle(V6Palette.paper.opacity(0.62))
+                    .padding(.leading, sessionListSideInset)
+                    .padding(.trailing, sessionListSideInset)
+                    .padding(.top, 10)
+                    .padding(.bottom, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if model.isHiddenSessionSectionExpanded {
+                    ForEach(sessions) { session in
+                        IslandSessionRow(
+                            session: session,
+                            referenceDate: referenceDate,
+                            stateIndicator: model.islandSessionStateIndicator,
+                            completedStaleThreshold: model.completedStaleThreshold.seconds,
+                            useDrawingGroup: model.notchStatus == .opened,
+                            isInteractive: model.notchStatus == .opened,
+                            sideInset: sessionListSideInset,
+                            lang: model.lang,
+                            onJump: { model.jumpToSession(session) },
+                            onUnhide: { model.unhideSession(session) }
+                        )
+                    }
+                }
+            }
+            .background(Color.white.opacity(0.008))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(.white.opacity(0.055))
+                    .frame(height: 1)
             }
         }
     }
@@ -1244,6 +1317,8 @@ private struct IslandSessionRow: View {
     var onReply: ((String) -> Void)?
     let onJump: () -> Void
     var onDismiss: (() -> Void)?
+    var onHide: (() -> Void)?
+    var onUnhide: (() -> Void)?
 
     @State private var isHighlighted = false
     @State private var detailOverride: Bool?
@@ -1307,6 +1382,22 @@ private struct IslandSessionRow: View {
         .onChange(of: isInteractive) { _, interactive in
             if !interactive {
                 detailOverride = nil
+            }
+        }
+        .contextMenu {
+            if let onHide {
+                Button {
+                    onHide()
+                } label: {
+                    Label(lang.t("island.session.hide"), systemImage: "eye.slash")
+                }
+            }
+            if let onUnhide {
+                Button {
+                    onUnhide()
+                } label: {
+                    Label(lang.t("island.session.unhide"), systemImage: "eye")
+                }
             }
         }
     }

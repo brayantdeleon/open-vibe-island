@@ -28,6 +28,7 @@ struct AppModelSessionListTests {
             "appearance.island.v8.topBar.completedStaleThreshold",
             "app.suppressFrontmostNotifications",
             "feature.completionReply.enabled",
+            HiddenSessionStore.defaultsKey,
             "overlay.sound.muted",
         ].forEach(UserDefaults.standard.removeObject(forKey:))
     }
@@ -420,6 +421,163 @@ struct AppModelSessionListTests {
 
         #expect(model.islandSessionSections.map(\.id) == ["state-done"])
         #expect(model.islandSessionSections.first?.sessions.first?.id == "old-done")
+    }
+
+    @Test
+    func hiddenConversationPersistsAndStaysOutOfNormalIslandPresentation() {
+        let storage = makeHiddenSessionStorage()
+        defer {
+            storage.defaults.removePersistentDomain(forName: storage.suiteName)
+        }
+
+        var session = listSession(id: "hidden-running", phase: .running, updatedAt: .now)
+        session.isProcessAlive = true
+
+        let model = AppModel(hiddenSessionStore: storage.store)
+        model.state = SessionState(sessions: [session])
+        model.hideSession(session)
+
+        #expect(model.isSessionHidden(session))
+        #expect(model.surfacedSessions.isEmpty)
+        #expect(model.islandListSessions.isEmpty)
+        #expect(model.hiddenIslandSessions.map(\.id) == [session.id])
+        #expect(model.islandClosedActivePets.isEmpty)
+        #expect(model.islandClosedRightSlotContent() == nil)
+        #expect(!model.isHiddenSessionSectionExpanded)
+        #expect(model.islandRenderedSessions.isEmpty)
+
+        model.toggleHiddenSessionSection()
+        #expect(model.islandRenderedSessions.map(\.id) == [session.id])
+
+        let reloaded = AppModel(hiddenSessionStore: storage.store)
+        reloaded.state = SessionState(sessions: [session])
+        #expect(reloaded.isSessionHidden(session))
+        #expect(reloaded.hiddenIslandSessions.map(\.id) == [session.id])
+
+        reloaded.unhideSession(session)
+        #expect(!reloaded.isSessionHidden(session))
+        #expect(reloaded.surfacedSessions.map(\.id) == [session.id])
+    }
+
+    @Test
+    func hiddenConversationSuppressesCompletionButSurfacesApproval() {
+        let storage = makeHiddenSessionStorage()
+        defer {
+            storage.defaults.removePersistentDomain(forName: storage.suiteName)
+        }
+
+        let now = Date()
+        var session = listSession(id: "hidden-action", phase: .running, updatedAt: now)
+        session.isProcessAlive = true
+
+        let model = AppModel(
+            isNotificationSessionAlreadyFrontmost: { _ in false },
+            hiddenSessionStore: storage.store
+        )
+        model.suppressFrontmostNotifications = false
+        model.state = SessionState(sessions: [session])
+        model.hideSession(session)
+
+        let completion = AgentEvent.sessionCompleted(
+            SessionCompleted(
+                sessionID: session.id,
+                summary: "Hidden work finished.",
+                timestamp: now.addingTimeInterval(1)
+            )
+        )
+        model.applyTrackedEvent(completion, updateLastActionMessage: false, ingress: .bridge)
+
+        #expect(model.notchStatus == .closed)
+        #expect(model.hiddenIslandSessions.map(\.id) == [session.id])
+        #expect(!model.shouldExposeEventFromHiddenSession(
+            completion,
+            session: model.state.session(id: session.id)
+        ))
+
+        model.applyTrackedEvent(
+            .activityUpdated(
+                SessionActivityUpdated(
+                    sessionID: session.id,
+                    summary: "Working again.",
+                    phase: .running,
+                    timestamp: now.addingTimeInterval(2)
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .bridge
+        )
+        let approval = AgentEvent.permissionRequested(
+            PermissionRequested(
+                sessionID: session.id,
+                request: PermissionRequest(
+                    title: "Run command",
+                    summary: "Allow the hidden conversation to continue?",
+                    affectedPath: "/tmp/hidden-action"
+                ),
+                timestamp: now.addingTimeInterval(3)
+            )
+        )
+        model.applyTrackedEvent(approval, updateLastActionMessage: false, ingress: .bridge)
+
+        #expect(model.notchStatus == .opened)
+        #expect(model.notchOpenReason == .notification)
+        #expect(model.islandSurface == .sessionList(actionableSessionID: session.id))
+        #expect(model.surfacedSessions.map(\.id) == [session.id])
+        #expect(model.hiddenIslandSessions.isEmpty)
+        #expect(model.shouldExposeEventFromHiddenSession(
+            approval,
+            session: model.state.session(id: session.id)
+        ))
+
+        model.applyTrackedEvent(
+            .actionableStateResolved(
+                ActionableStateResolved(
+                    sessionID: session.id,
+                    summary: "Approval resolved.",
+                    timestamp: now.addingTimeInterval(4)
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .bridge
+        )
+
+        #expect(model.surfacedSessions.isEmpty)
+        #expect(model.hiddenIslandSessions.map(\.id) == [session.id])
+    }
+
+    @Test
+    func hiddenConversationDoesNotSurfaceQuestionNotifications() {
+        let storage = makeHiddenSessionStorage()
+        defer {
+            storage.defaults.removePersistentDomain(forName: storage.suiteName)
+        }
+
+        var session = listSession(id: "hidden-question", phase: .running, updatedAt: .now)
+        session.isProcessAlive = true
+
+        let model = AppModel(hiddenSessionStore: storage.store)
+        model.suppressFrontmostNotifications = false
+        model.state = SessionState(sessions: [session])
+        model.hideSession(session)
+
+        model.applyTrackedEvent(
+            .questionAsked(
+                QuestionAsked(
+                    sessionID: session.id,
+                    prompt: QuestionPrompt(
+                        title: "Choose an option",
+                        options: ["A", "B"]
+                    ),
+                    timestamp: .now
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .bridge
+        )
+
+        #expect(model.notchStatus == .closed)
+        #expect(model.surfacedSessions.isEmpty)
+        #expect(model.hiddenIslandSessions.map(\.id) == [session.id])
     }
 
     @Test
@@ -1634,6 +1792,21 @@ struct AppModelSessionListTests {
                 workingDirectory: "/tmp/\(id)",
                 terminalSessionID: "ghostty-\(id)"
             )
+        )
+    }
+
+    private func makeHiddenSessionStorage() -> (
+        store: HiddenSessionStore,
+        defaults: UserDefaults,
+        suiteName: String
+    ) {
+        let suiteName = "AppModelSessionListTests.Hidden.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (
+            HiddenSessionStore(defaults: defaults),
+            defaults,
+            suiteName
         )
     }
 

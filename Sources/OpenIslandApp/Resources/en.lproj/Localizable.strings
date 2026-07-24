@@ -210,6 +210,9 @@
 "island.section.inProgress" = "In progress";
 "island.section.justDone" = "Just done";
 "island.section.idle" = "Idle";
+"island.section.hidden" = "Hidden";
+"island.session.hide" = "Hide Conversation";
+"island.session.unhide" = "Unhide Conversation";
 "island.showAll" = "Show all %lld sessions";
 "island.collapseList" = "Collapse list";
 "island.usageWaiting" = "Usage waiting";
