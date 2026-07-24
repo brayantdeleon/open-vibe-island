@@ -1755,7 +1755,11 @@ final class AppModel {
         }
 
         let primaryIDs = Set(primary.map(\.id))
-        let overflow = rankedSessions.filter { !primaryIDs.contains($0.id) && !$0.isSubagentSession }
+        let overflow = rankedSessions.filter {
+            !primaryIDs.contains($0.id)
+                && !$0.isSubagentSession
+                && !$0.isRealtimeVoiceChatSession
+        }
         return (primary, overflow)
     }
 

@@ -118,6 +118,32 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func realtimeVoiceChatsAreAbsentFromOpenAndRecentSessions() {
+        let now = Date()
+        let model = AppModel()
+
+        var voiceSession = listSession(
+            id: "realtime-voice-chat",
+            phase: .running,
+            updatedAt: now
+        )
+        voiceSession.title = "realtime-voice-chat-7"
+        voiceSession.isProcessAlive = true
+
+        let ordinarySession = listSession(
+            id: "ordinary",
+            phase: .completed,
+            updatedAt: now
+        )
+
+        model.state = SessionState(sessions: [voiceSession, ordinarySession])
+
+        #expect(model.allSessions.map(\.id).contains("realtime-voice-chat"))
+        #expect(model.surfacedSessions.map(\.id) == ["ordinary"])
+        #expect(model.recentSessions.isEmpty)
+    }
+
+    @Test
     func completedSessionDoesNotHopOutWhenAttachmentStateChanges() {
         let now = Date()
         let model = AppModel()
