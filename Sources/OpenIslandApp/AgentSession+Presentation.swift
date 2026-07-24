@@ -42,6 +42,9 @@ extension AgentSession {
     /// retain the stricter live visibility rules so restored stale sessions do
     /// not appear to be actively running.
     func isVisibleInIslandSessionList(at referenceDate: Date) -> Bool {
+        guard !isRealtimeVoiceChatSession else {
+            return false
+        }
         guard phase == .completed else {
             return isVisibleInIsland
         }

@@ -47,6 +47,42 @@ struct AgentSessionPresentationTests {
     }
 
     @Test
+    func realtimeVoiceChatsAreExcludedOnlyForTheNumberedNamingConvention() {
+        var voiceSession = AgentSession(
+            id: "voice",
+            title: "Codex voice helper",
+            tool: .codex,
+            attachmentState: .attached,
+            phase: .running,
+            summary: "Listening",
+            updatedAt: .now,
+            jumpTarget: JumpTarget(
+                terminalApp: "Codex.app",
+                workspaceName: "realtime-voice-chat-42",
+                paneTitle: "Voice chat",
+                workingDirectory: "/tmp/realtime-voice-chat-42"
+            )
+        )
+        voiceSession.isProcessAlive = true
+
+        var similarlyNamedSession = voiceSession
+        similarlyNamedSession.id = "ordinary"
+        similarlyNamedSession.jumpTarget?.workspaceName = "realtime-voice-chat-42-notes"
+
+        var titledVoiceSession = voiceSession
+        titledVoiceSession.id = "titled-voice"
+        titledVoiceSession.title = "Codex · realtime-voice-chat-8"
+        titledVoiceSession.jumpTarget = nil
+
+        #expect(voiceSession.isRealtimeVoiceChatSession)
+        #expect(!voiceSession.isVisibleInIsland)
+        #expect(!voiceSession.isVisibleInIslandSessionList(at: .now))
+        #expect(titledVoiceSession.isRealtimeVoiceChatSession)
+        #expect(!similarlyNamedSession.isRealtimeVoiceChatSession)
+        #expect(similarlyNamedSession.isVisibleInIslandSessionList(at: .now))
+    }
+
+    @Test
     func completedAndRequiredActionNotificationsStartExpanded() {
         let running = AgentSession(
             id: "running",
