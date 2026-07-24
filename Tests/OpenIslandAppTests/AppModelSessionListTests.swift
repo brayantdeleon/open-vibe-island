@@ -546,6 +546,74 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func hiddenApprovalSurvivesCodexIdleUpdateAndUnhide() {
+        let storage = makeHiddenSessionStorage()
+        defer {
+            storage.defaults.removePersistentDomain(forName: storage.suiteName)
+        }
+
+        let now = Date(timeIntervalSince1970: 4_000)
+        var session = listSession(id: "hidden-codex-approval", phase: .running, updatedAt: now)
+        session.isProcessAlive = true
+
+        let model = AppModel(
+            isNotificationSessionAlreadyFrontmost: { _ in false },
+            hiddenSessionStore: storage.store
+        )
+        model.suppressFrontmostNotifications = false
+        model.state = SessionState(sessions: [session])
+        model.hideSession(session)
+
+        let request = PermissionRequest(
+            title: "Apply code patch",
+            summary: "Codex wants to update AppModel.swift.",
+            detail: "*** Begin Patch\n*** Update File: AppModel.swift",
+            affectedPath: "AppModel.swift"
+        )
+        model.applyTrackedEvent(
+            .permissionRequested(
+                PermissionRequested(
+                    sessionID: session.id,
+                    request: request,
+                    timestamp: now.addingTimeInterval(1)
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .bridge
+        )
+
+        // Codex Desktop may report idle/turn-completed while its blocking
+        // hook is still awaiting Open Island's approval response.
+        model.applyTrackedEvent(
+            .activityUpdated(
+                SessionActivityUpdated(
+                    sessionID: session.id,
+                    summary: "Turn completed.",
+                    phase: .completed,
+                    timestamp: now.addingTimeInterval(2)
+                )
+            ),
+            updateLastActionMessage: false,
+            ingress: .bridge
+        )
+
+        let pending = model.state.session(id: session.id)
+        #expect(model.isSessionHidden(pending!))
+        #expect(pending?.phase == .waitingForApproval)
+        #expect(pending?.permissionRequest == request)
+        #expect(model.surfacedSessions.map(\.id) == [session.id])
+        #expect(model.hiddenIslandSessions.isEmpty)
+        #expect(model.notchStatus == .opened)
+        #expect(model.islandSurface == .sessionList(actionableSessionID: session.id))
+
+        model.unhideSession(pending!)
+
+        #expect(!model.isSessionHidden(model.state.session(id: session.id)!))
+        #expect(model.activeIslandCardSession?.permissionRequest == request)
+        #expect(model.islandSurface == .sessionList(actionableSessionID: session.id))
+    }
+
+    @Test
     func hiddenConversationDoesNotSurfaceQuestionNotifications() {
         let storage = makeHiddenSessionStorage()
         defer {
